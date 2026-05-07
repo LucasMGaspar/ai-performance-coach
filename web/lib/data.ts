@@ -70,8 +70,8 @@ export async function getUserDashboard(userId: string) {
 
   // Heatmap — agrupar por dia (YYYY-MM-DD)
   const [workoutDays, dietDays] = consistencyRaw;
-  const workoutSet = new Set(workoutDays.map((r) => r.date.toISOString().slice(0, 10)));
-  const dietSet = new Set(dietDays.map((r) => r.date.toISOString().slice(0, 10)));
+  const workoutSet = new Set(workoutDays.map((r: any) => r.date.toISOString().slice(0, 10)));
+  const dietSet = new Set(dietDays.map((r: any) => r.date.toISOString().slice(0, 10)));
 
   const heatmapDays: Array<{ date: string; type: "both" | "workout" | "diet" | "none" }> = [];
   for (let i = 83; i >= 0; i--) {
@@ -103,7 +103,7 @@ export async function getUserDashboard(userId: string) {
   }
 
   // Sessão anterior por exercício (para comparação na ficha do dia)
-  const exercisesTrainedToday = new Set(workoutLogsToday.map((l) => l.exercise.name));
+  const exercisesTrainedToday = new Set<string>(workoutLogsToday.map((l: any) => l.exercise.name));
   const previousSession: Record<string, {
     date: string;
     logs: { weightKg: number; reps: number; sets: number; rpe: number | null }[];
@@ -121,7 +121,7 @@ export async function getUserDashboard(userId: string) {
       .filter((l) => l.date.toISOString().slice(0, 10) === lastDate)
       .map((l) => ({ weightKg: l.weightKg, reps: l.reps, sets: l.sets, rpe: l.rpe }));
 
-    previousSession[exerciseName] = { date: lastDate, logs: lastSessionLogs };
+    previousSession[exerciseName as string] = { date: lastDate, logs: lastSessionLogs };
   }
 
   return {
