@@ -62,7 +62,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                 </tr>
               </thead>
               <tbody>
-                {user.workoutLogs.map((log) => (
+                {user.workoutLogs.map((log: any) => (
                   <tr key={log.id} className="border-b border-gray-50">
                     <td className="px-4 py-2 font-medium text-gray-900">{log.exercise?.name ?? "—"}</td>
                     <td className="px-4 py-2 text-gray-600">{log.weightKg}kg × {log.reps} × {log.sets}</td>
@@ -91,7 +91,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                 </tr>
               </thead>
               <tbody>
-                {user.dietLogs.map((log) => (
+                {user.dietLogs.map((log: any) => (
                   <tr key={log.id} className="border-b border-gray-50">
                     <td className="px-4 py-2 font-medium text-gray-900">{log.meal}</td>
                     <td className="px-4 py-2 text-gray-600">{log.calories ?? "—"}kcal</td>
@@ -119,7 +119,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                 </tr>
               </thead>
               <tbody>
-                {user.checkIns.map((ci) => (
+                {user.checkIns.map((ci: any) => (
                   <tr key={ci.id} className="border-b border-gray-50">
                     <td className="px-4 py-2 text-gray-900">{ci.mood ?? "—"}/10</td>
                     <td className="px-4 py-2 text-gray-600">{ci.sleepQuality ?? "—"}/10</td>
