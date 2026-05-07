@@ -1,42 +1,30 @@
 // Tipos reutilizáveis do domínio
 
-export type MessageType = "text" | "audio" | "image" | "document";
-
 export type NudgeType = "diet" | "workout" | "checkin";
 
+// Payload real da w-api.app
 export interface WApiMessagePayload {
   event: string;
   instanceId: string;
-  data: {
-    key: {
-      remoteJid: string;
-      fromMe: boolean;
-      id: string;
-    };
+  connectedPhone: string;
+  fromMe: boolean;
+  sender: {
+    id: string;
     pushName?: string;
-    message: {
-      conversation?: string;
-      extendedTextMessage?: {
-        text: string;
-      };
-      audioMessage?: {
-        url: string;
-        mimetype: string;
-        seconds: number;
-      };
-      imageMessage?: {
-        url: string;
-        mimetype: string;
-        caption?: string;
-      };
-      documentMessage?: {
-        url: string;
-        mimetype: string;
-        title?: string;
-        fileName?: string;
-      };
+  };
+  msgContent: {
+    conversation?: string;
+    audioMessage?: {
+      URL: string;
+      mediaKey: string;
+      mimetype?: string;
+      seconds?: number;
+      PTT?: boolean;
     };
-    messageType: MessageType;
-    messageTimestamp: number;
+    imageMessage?: {
+      url: string;
+      mimetype?: string;
+      caption?: string;
+    };
   };
 }

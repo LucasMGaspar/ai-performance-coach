@@ -14,22 +14,32 @@ import {
 
 const STATIC_SYSTEM_PROMPT = `Você é um assistente de extracção de dados de treino e dieta. Analise a mensagem do utilizador e extraia as informações em formato JSON estruturado.
 
-REGRAS DE EXTRACÇÃO:
-1. Para treino: identificar exercício, peso, repetições, séries e RPE (esforço percebido 1-10)
-2. Para dieta: identificar refeição, calorias e macronutrientes
-3. Para check-in: identificar humor, qualidade do sono e nível de energia (escala 1-10)
-4. Se a mensagem não se encaixar em nenhuma categoria, use type "unknown" com uma resposta útil
-
 REGRA CRÍTICA — PESO "DE CADA LADO":
 - Se o utilizador disser "Xkg de cada lado", "X de cada lado", "X por lado" — preencher weightPerSide com X
-- NÃO calcular totalWeight — deixar null (será calculado pelo sistema usando o catálogo de exercícios)
+- NÃO calcular totalWeight — deixar null (será calculado pelo sistema)
 - Se disser o peso total directamente (ex: "90kg no supino") — preencher totalWeight directamente
 
 CATÁLOGO DE EXERCÍCIOS:
-O catálogo abaixo contém os exercícios disponíveis com seus aliases. Use-o para normalizar o nome do exercício para o nome canónico mais próximo.
+O catálogo abaixo contém os exercícios disponíveis com seus aliases. Use-o para normalizar o nome do exercício.
 
-FORMATO DE SAÍDA:
-Responda APENAS com JSON válido seguindo exactamente os schemas fornecidos.`;
+SCHEMAS OBRIGATÓRIOS — use EXACTAMENTE estes campos e nomes:
+
+Treino:
+{"type":"workout","exercises":[{"exerciseName":"string","totalWeight":number,"reps":number,"sets":number,"rpe":number_opcional}]}
+
+Dieta:
+{"type":"diet","meal":"string","calories":number_opcional,"protein":number_opcional,"carbs":number_opcional,"fat":number_opcional,"description":"string_opcional"}
+
+Check-in:
+{"type":"checkin","mood":number_1_10_opcional,"sleepQuality":number_1_10_opcional,"energyLevel":number_1_10_opcional,"notes":"string_opcional"}
+
+Mensagem não reconhecida:
+{"type":"unknown","message":"resposta útil em português"}
+
+REGRAS:
+- Responda APENAS com JSON válido, sem markdown, sem explicações
+- O campo "exercises" é SEMPRE um array (mesmo com 1 exercício)
+- O campo "message" em unknown é OBRIGATÓRIO e deve conter uma resposta útil ao utilizador`;
 
 // ---------------------------------------------------------------------------
 // Tipos internos
@@ -188,13 +198,20 @@ export class ParserAgent {
       const rawText =
         response.content[0].type === "text" ? response.content[0].text : "";
 
+      // Strip de markdown code blocks que o Claude por vezes adiciona (```json ... ```)
+      const cleaned = rawText
+        .trim()
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/, "");
+
       // Parse e validação com Zod
-      const parsed = parseExtraction(JSON.parse(rawText));
+      const parsed = parseExtraction(JSON.parse(cleaned));
 
       // 5. Aplicar regra de negócio "de cada lado"
       return this.applyWeightPerSideRule(parsed, exerciseCatalog);
-    } catch {
+    } catch (err) {
       // JSON inválido ou schema não validado — devolver resposta segura
+      console.error("parser.agent: erro ao processar mensagem —", err);
       return {
         type: "unknown",
         message: "Não consegui processar a mensagem. Tenta de novo!",

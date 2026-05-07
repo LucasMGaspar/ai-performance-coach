@@ -1,5 +1,5 @@
 import { FastifyPluginAsync } from "fastify";
-import { webhookAuthHook } from "../middleware/webhook-auth";
+import { config } from "../config";
 import { parserAgent } from "../agents/parser.agent";
 import { coachAgent } from "../agents/coach.agent";
 import { whisperService } from "../services/whisper.service";
@@ -12,43 +12,42 @@ const FALLBACK_MESSAGE =
   "Ocorreu um erro ao processar a tua mensagem. Tenta novamente.";
 
 const webhookRoute: FastifyPluginAsync = async (fastify) => {
-  // Autenticar todas as rotas deste plugin
-  fastify.addHook("preHandler", webhookAuthHook);
-
   fastify.post<{ Body: WApiMessagePayload }>("/whatsapp", async (request, reply) => {
     const body = request.body;
 
-    // Ignorar mensagens enviadas pelo próprio bot
-    if (body?.data?.key?.fromMe === true) {
+    // Validar instanceId para garantir que o payload é da nossa instância
+    if (body?.instanceId !== config.wapiInstanceId) {
       return reply.status(200).send({ ok: true });
     }
 
-    // Extrair campos do payload
-    const remoteJid = body?.data?.key?.remoteJid ?? "";
-    const phone = remoteJid.replace("@s.whatsapp.net", "");
-    const messageType = body?.data?.messageType;
-    const audioUrl = body?.data?.message?.audioMessage?.url;
+    // Ignorar mensagens enviadas pelo próprio bot
+    if (body?.fromMe === true) {
+      return reply.status(200).send({ ok: true });
+    }
 
-    let text =
-      body?.data?.message?.conversation ??
-      body?.data?.message?.extendedTextMessage?.text ??
-      "";
+    // Extrair campos do payload (estrutura real da w-api.app)
+    const phone = (body?.sender?.id ?? "").replace("@s.whatsapp.net", "");
+    const audioUrl = body?.msgContent?.audioMessage?.URL;
+    const audioMediaKey = body?.msgContent?.audioMessage?.mediaKey;
+    const isAudio = !!audioUrl;
+
+    let text = body?.msgContent?.conversation ?? "";
 
     try {
-      // Verificar se o número está autorizado (whitelist)
+      // Auto-registro: criar user na primeira mensagem
       // @ts-ignore — prisma generate necessário
-      const user = await prisma.user.findUnique({
+      const user = await prisma.user.upsert({
         where: { phoneNumber: phone },
+        update: {},
+        create: {
+          phoneNumber: phone,
+          name: body?.sender?.pushName ?? null,
+        },
       });
 
-      if (!user) {
-        // Número não autorizado — retornar 200 silenciosamente
-        return reply.status(200).send({ ok: true });
-      }
-
       // Transcrever áudio se necessário
-      if (messageType === "audio" && audioUrl) {
-        text = await whisperService.transcribeAudio(audioUrl);
+      if (isAudio && audioUrl) {
+        text = await whisperService.transcribeAudio(audioUrl, audioMediaKey);
       }
 
       // Parsear mensagem com o agente
