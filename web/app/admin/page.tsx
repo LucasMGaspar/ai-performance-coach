@@ -34,7 +34,7 @@ export default async function AdminPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {users.map((user: any) => (
                 <tr key={user.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-900">{user.name ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-600">{user.phoneNumber}</td>
