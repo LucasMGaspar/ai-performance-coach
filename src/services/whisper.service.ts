@@ -2,10 +2,13 @@ import OpenAI from "openai";
 import { config } from "../config";
 
 class WhisperService {
-  private openai: OpenAI;
+  private client: OpenAI;
 
   constructor() {
-    this.openai = new OpenAI({ apiKey: config.openaiApiKey });
+    this.client = new OpenAI({
+      apiKey: config.groqApiKey,
+      baseURL: "https://api.groq.com/openai/v1",
+    });
   }
 
   async transcribeAudio(audioUrl: string): Promise<string> {
@@ -15,9 +18,9 @@ class WhisperService {
 
     const file = new File([buffer], "audio.ogg", { type: "audio/ogg" });
 
-    const transcription = await this.openai.audio.transcriptions.create({
+    const transcription = await this.client.audio.transcriptions.create({
       file,
-      model: "whisper-1",
+      model: "whisper-large-v3-turbo",
       language: "pt",
     });
 

@@ -1,22 +1,28 @@
-import { config } from "../config.js";
+import { config } from "../config";
+
+const BASE_URL = "https://api.w-api.app/v1";
 
 class WApiService {
-  private readonly baseUrl: string;
   private readonly headers: Record<string, string>;
+  private readonly instanceId: string;
 
   constructor() {
-    this.baseUrl = config.wapiBaseUrl;
     this.headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${config.wapiToken}`,
     };
+    this.instanceId = config.wapiInstanceId;
+  }
+
+  private url(path: string): string {
+    return `${BASE_URL}${path}?instanceId=${this.instanceId}`;
   }
 
   async sendTextMessage(phone: string, message: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/message/send-text`, {
+    const response = await fetch(this.url("/message/send-text"), {
       method: "POST",
       headers: this.headers,
-      body: JSON.stringify({ phone, message }),
+      body: JSON.stringify({ phone, message, delayMessage: 1 }),
     });
 
     if (!response.ok) {
@@ -29,7 +35,7 @@ class WApiService {
   }
 
   async sendTyping(phone: string): Promise<void> {
-    await fetch(`${this.baseUrl}/chat/presence`, {
+    await fetch(this.url("/chat/presence"), {
       method: "POST",
       headers: this.headers,
       body: JSON.stringify({ phone, presence: "composing" }),
