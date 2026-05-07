@@ -11,8 +11,15 @@ export default async function DashboardPage({ params }: { params: Promise<{ user
   let data;
   try {
     data = await getUserDashboard(userId);
-  } catch {
-    notFound();
+  } catch (error: any) {
+    return (
+      <div className="p-8 text-white">
+        <h1 className="text-red-500 font-bold text-xl mb-4">Erro Crítico</h1>
+        <pre className="bg-slate-900 p-4 rounded text-xs overflow-auto">
+          {error?.message || String(error)}
+        </pre>
+      </div>
+    );
   }
 
   const { user, protocolDay, macrosToday, workoutLogsToday, tonnageToday, heatmapDays } = data;
