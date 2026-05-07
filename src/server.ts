@@ -2,6 +2,7 @@ import Fastify, { FastifyInstance } from "fastify";
 import formbody from "@fastify/formbody";
 import { config } from "./config";
 import healthRoute from "./routes/health";
+import webhookRoute from "./routes/webhook";
 
 export function buildServer(): FastifyInstance {
   const server = Fastify({
@@ -11,6 +12,7 @@ export function buildServer(): FastifyInstance {
   server.register(formbody);
 
   server.register(healthRoute, { prefix: "/" });
+  server.register(webhookRoute, { prefix: "/webhook" });
 
   server.setErrorHandler((error, _request, reply) => {
     server.log.error(error);
