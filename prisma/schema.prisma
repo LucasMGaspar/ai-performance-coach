@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id             String   @id @default(cuid())
+  phoneNumber    String   @unique
+  name           String?
+  height         Float?
+  weightKg       Float?
+  age            Int?
+  tdee           Float?
+  targetCalories Float?
+  targetProtein  Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workoutLogs WorkoutLog[]
+  dietLogs    DietLog[]
+  checkIns    DailyCheckIn[]
+
+  @@map("users")
+}
+
+model ExerciseCatalog {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  aliases     String[]
+  muscleGroup String
+  equipment   String?
+  barWeightKg Float?
+
+  workoutLogs WorkoutLog[]
+
+  @@map("exercise_catalog")
+}
+
+model WorkoutLog {
+  id         String   @id @default(cuid())
+  userId     String
+  exerciseId String
+  date       DateTime @default(now())
+  weightKg   Float
+  reps       Int
+  sets       Int
+  rpe        Float?
+  volume     Float
+  rawInput   String?
+
+  user     User            @relation(fields: [userId], references: [id])
+  exercise ExerciseCatalog @relation(fields: [exerciseId], references: [id])
+
+  @@index([userId, exerciseId, date])
+  @@map("workout_logs")
+}
+
+model DietLog {
+  id       String   @id @default(cuid())
+  userId   String
+  meal     String
+  calories Float
+  protein  Float
+  carbs    Float?
+  fat      Float?
+  date     DateTime @default(now())
+  notes    String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, date])
+  @@map("diet_logs")
+}
+
+model DailyCheckIn {
+  id           String   @id @default(cuid())
+  userId       String
+  date         DateTime @default(now())
+  mood         Int
+  sleepQuality Int
+  energyLevel  Int
+  notes        String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, date])
+  @@map("daily_checkins")
+}
