@@ -96,7 +96,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ user
           <p className="text-slate-500 text-sm">Nenhum treino registado hoje.</p>
         ) : (
           <div className="space-y-2">
-            {workoutLogsToday.map((log) => (
+            {workoutLogsToday.map((log: any) => (
               <div key={log.id} className="flex items-center justify-between py-1.5 border-b border-slate-700 last:border-0">
                 <span className="text-white text-sm font-medium">{log.exercise.name}</span>
                 <span className="text-slate-400 text-xs">

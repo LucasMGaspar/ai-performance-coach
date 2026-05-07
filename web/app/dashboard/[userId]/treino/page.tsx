@@ -44,8 +44,8 @@ export default async function TreinoPage({ params }: { params: Promise<{ userId:
         Array.from(byExercise.entries()).map(([name, logs]) => {
           const totalVol = logs.reduce((a, l) => a + l.volume, 0);
           const prev = previousSession[name];
-          const prevMaxWeight = prev ? Math.max(...prev.logs.map((l) => l.weightKg)) : null;
-          const currentMaxWeight = Math.max(...logs.map((l) => l.weightKg));
+          const prevMaxWeight = prev ? Math.max(...prev.logs.map((l: any) => l.weightKg)) : null;
+          const currentMaxWeight = Math.max(...logs.map((l: any) => l.weightKg));
           const isNewPR = prev && currentMaxWeight > prevMaxWeight!;
 
           return (

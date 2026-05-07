@@ -69,7 +69,7 @@ export default async function DietaPage({ params }: { params: Promise<{ userId: 
             <span className="text-xs text-slate-600">Envia no WhatsApp: "Almoço: frango com arroz, 500kcal, 40g proteína"</span>
           </p>
         ) : (
-          dietLogsToday.map((log) => (
+          dietLogsToday.map((log: any) => (
             <div key={log.id} className="px-4 py-3 border-b border-slate-700/50 last:border-0">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-medium text-white text-sm">{log.meal}</span>

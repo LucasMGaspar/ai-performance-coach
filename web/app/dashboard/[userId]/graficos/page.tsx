@@ -39,7 +39,7 @@ export default function GraficosPage({ params }: { params: Promise<{ userId: str
 
   const selectedData = progression.find((p) => p.name === selected)?.data ?? [];
 
-  const checkInData = [...checkIns].reverse().map((c) => ({
+  const checkInData = [...checkIns].reverse().map((c: any) => ({
     date: new Date(c.date).toISOString().slice(5, 10),
     mood: c.mood,
     sleep: c.sleepQuality,
@@ -68,7 +68,7 @@ export default function GraficosPage({ params }: { params: Promise<{ userId: str
               onChange={(e) => setSelected(e.target.value)}
               className="text-xs bg-slate-700 text-white border border-slate-600 rounded px-2 py-1 focus:outline-none"
             >
-              {progression.map((p) => (
+              {progression.map((p: any) => (
                 <option key={p.name} value={p.name}>{p.name}</option>
               ))}
             </select>
@@ -94,7 +94,7 @@ export default function GraficosPage({ params }: { params: Promise<{ userId: str
           <p className="text-slate-500 text-sm py-6 text-center">Precisa de pelo menos 2 check-ins.</p>
         ) : (
           <div className="space-y-3">
-            {checkInData.slice(-7).map((c) => (
+            {checkInData.slice(-7).map((c: any) => (
               <div key={c.date} className="flex items-center gap-3">
                 <span className="text-xs text-slate-500 w-12">{c.date}</span>
                 <div className="flex-1 grid grid-cols-3 gap-2">
