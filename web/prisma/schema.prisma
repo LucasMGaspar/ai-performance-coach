@@ -7,45 +7,23 @@ datasource db {
 }
 
 model User {
-  id              String   @id @default(cuid())
-  phoneNumber     String   @unique
-  name            String?
-  height          Float?
-  weightKg        Float?
-  age             Int?
-  sex             String?  // "masculino" | "feminino"
-  experienceLevel String?  // "iniciante" | "intermédio" | "avançado"
-  goal            String?  // "hipertrofia" | "emagrecimento" | etc
-  onboarded       Boolean  @default(false)
-  tdee            Float?
-  targetCalories  Float?
-  targetProtein   Float?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  phoneNumber    String   @unique
+  name           String?
+  height         Float?
+  weightKg       Float?
+  age            Int?
+  tdee           Float?
+  targetCalories Float?
+  targetProtein  Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  workoutLogs    WorkoutLog[]
-  dietLogs       DietLog[]
-  checkIns       DailyCheckIn[]
-  scheduledMeals ScheduledMeal[]
+  workoutLogs WorkoutLog[]
+  dietLogs    DietLog[]
+  checkIns    DailyCheckIn[]
 
   @@map("users")
-}
-
-model ScheduledMeal {
-  id             String  @id @default(cuid())
-  userId         String
-  mealName       String  // "Pequeno-almoço", "Almoço", etc
-  scheduledTime  String  // "08:00"
-  description    String
-  targetCalories Float
-  targetProtein  Float
-  targetCarbs    Float?
-  targetFat      Float?
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@map("scheduled_meals")
 }
 
 model ExerciseCatalog {

@@ -2,8 +2,11 @@ import { FastifyPluginAsync } from "fastify";
 import { config } from "../config";
 import { parserAgent } from "../agents/parser.agent";
 import { coachAgent } from "../agents/coach.agent";
+import { dietAgent } from "../agents/diet.agent";
+import { onboardingAgent } from "../agents/onboarding.agent";
 import { whisperService } from "../services/whisper.service";
 import { wapiService } from "../services/wapi.service";
+import { redisService } from "../services/redis.service";
 // @ts-ignore — prisma generate necessário
 import { prisma } from "../db/client";
 import type { WApiMessagePayload } from "../types";
@@ -50,10 +53,32 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
         text = await whisperService.transcribeAudio(audioUrl, audioMediaKey);
       }
 
-      // Parsear mensagem com o agente
+      // Comando especial: reiniciar onboarding (funciona mesmo com onboarded = true)
+      if (/^reiniciar$/i.test(text.trim())) {
+        // @ts-ignore — prisma generate necessário
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { onboarded: false },
+        });
+        await redisService.clearSession(phone);
+        const welcomeResponse = await onboardingAgent.handle(user.id, phone, "reiniciar");
+        wapiService.sendTyping(phone).catch(() => {});
+        await wapiService.sendTextMessage(phone, welcomeResponse);
+        return reply.status(200).send({ ok: true });
+      }
+
+      // Routing: se o utilizador ainda não fez onboarding, encaminha para o agente de onboarding
+      if (!user.onboarded) {
+        const onboardingResponse = await onboardingAgent.handle(user.id, phone, text);
+        wapiService.sendTyping(phone).catch(() => {});
+        await wapiService.sendTextMessage(phone, onboardingResponse);
+        return reply.status(200).send({ ok: true });
+      }
+
+      // Parsear mensagem com o agente (fluxo normal)
       const result = await parserAgent.parseMessage(text, user.id, phone);
 
-      let responseMessage: string;
+      let responseMessage = "";
 
       // Processar resultado consoante o tipo
       switch (result.type) {
@@ -77,7 +102,15 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
 
             // Fallback: usar o primeiro exercício do catálogo
             const resolvedEntry = catalogEntry ?? catalog[0];
-            const resolvedExerciseId = resolvedEntry?.id ?? "unknown";
+
+            // Se o catálogo estiver vazio, não podemos salvar (FK inválida) — registar warning
+            if (!resolvedEntry) {
+              console.warn("workout: catálogo vazio — registo ignorado para:", exercise.exerciseName);
+              responseMessage = "⚠️ Catálogo de exercícios vazio. Contacta o administrador.";
+              continue;
+            }
+
+            const resolvedExerciseId = resolvedEntry.id;
 
             // @ts-ignore — prisma generate necessário
             await prisma.workoutLog.create({
@@ -94,17 +127,22 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
               },
             });
 
-            // Analisar treino e gerar resposta (usar o último exercício para a resposta)
-            responseMessage = await coachAgent.analyzeWorkout(user.id, {
+            // Analisar treino e gerar resposta
+            const exerciseResponse = await coachAgent.analyzeWorkout(user.id, {
               exerciseName: exercise.exerciseName,
               exerciseId: resolvedExerciseId,
               weightKg: exercise.totalWeight ?? 0,
               reps: exercise.reps,
               sets: exercise.sets,
-              rpe: exercise.rpe,
+              rpe: exercise.rpe ?? undefined,
               volume:
                 (exercise.totalWeight ?? 0) * exercise.reps * exercise.sets,
             });
+
+            // Acumular respostas se houver múltiplos exercícios/séries
+            responseMessage = responseMessage 
+              ? `${responseMessage}\n\n${exerciseResponse}` 
+              : exerciseResponse;
           }
 
           // Se não havia exercícios, gerar mensagem genérica
@@ -126,7 +164,12 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
             },
           });
 
-          responseMessage = await coachAgent.analyzeDiet(user.id);
+          responseMessage = await dietAgent.analyzeDietLog(user.id);
+          break;
+        }
+
+        case "question": {
+          responseMessage = await dietAgent.answerQuestion(user.id, result.question);
           break;
         }
 
@@ -163,7 +206,14 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
 
       return reply.status(200).send({ ok: true });
     } catch (error) {
-      request.log.error(error);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const errStack = error instanceof Error ? error.stack : "";
+      request.log.error({ errMsg, errStack }, "Webhook error");
+      console.error("=== WEBHOOK ERROR ===");
+      console.error("Phone:", phone);
+      console.error("Message:", errMsg);
+      console.error("Stack:", errStack);
+      console.error("=====================");
 
       // Tentar enviar mensagem de fallback — nunca retornar 5xx
       wapiService.sendTextMessage(phone, FALLBACK_MESSAGE).catch(() => {});

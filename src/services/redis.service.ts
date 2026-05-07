@@ -1,5 +1,6 @@
 import { Redis } from "@upstash/redis";
 import { config } from "../config";
+import type { OnboardingStep, OnboardingData } from "../types";
 
 export interface ConversationSession {
   phoneNumber: string;
@@ -9,6 +10,8 @@ export interface ConversationSession {
     lastBarWeightKg?: number;
   };
   lastActivity: string; // ISO string — Redis serializa como JSON
+  onboardingStep?: OnboardingStep;
+  onboardingData?: OnboardingData;
 }
 
 class RedisService {
@@ -50,6 +53,25 @@ class RedisService {
     };
 
     session.pendingContext = { ...session.pendingContext, ...ctx };
+    session.lastActivity = new Date().toISOString();
+
+    await this.setSession(phone, session);
+  }
+
+  async updateOnboarding(
+    phone: string,
+    step: OnboardingStep,
+    data: Partial<OnboardingData>
+  ): Promise<void> {
+    const existing = await this.getSession(phone);
+    const session: ConversationSession = existing ?? {
+      phoneNumber: phone,
+      pendingContext: {},
+      lastActivity: new Date().toISOString(),
+    };
+
+    session.onboardingStep = step;
+    session.onboardingData = { ...(session.onboardingData ?? {}), ...data };
     session.lastActivity = new Date().toISOString();
 
     await this.setSession(phone, session);

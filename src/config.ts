@@ -12,6 +12,7 @@ const envSchema = z.object({
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
   WEBHOOK_SECRET: z.string().min(1),
   NUDGE_SECRET: z.string().min(1),
+  DASHBOARD_URL: z.string().default("http://localhost:3000"),
   PORT: z.string().default("3000"),
   NODE_ENV: z.string().default("development"),
 });
@@ -41,6 +42,7 @@ export const config = {
   upstashRedisRestToken: env.UPSTASH_REDIS_REST_TOKEN,
   webhookSecret: env.WEBHOOK_SECRET,
   nudgeSecret: env.NUDGE_SECRET,
+  dashboardUrl: env.DASHBOARD_URL,
   port: parseInt(env.PORT, 10),
   nodeEnv: env.NODE_ENV,
 } as const;

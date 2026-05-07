@@ -33,12 +33,17 @@ Dieta:
 Check-in:
 {"type":"checkin","mood":number_1_10_opcional,"sleepQuality":number_1_10_opcional,"energyLevel":number_1_10_opcional,"notes":"string_opcional"}
 
+Pergunta:
+{"type":"question","question":"string"}
+
 Mensagem não reconhecida:
 {"type":"unknown","message":"resposta útil em português"}
 
 REGRAS:
 - Responda APENAS com JSON válido, sem markdown, sem explicações
 - O campo "exercises" é SEMPRE um array (mesmo com 1 exercício)
+- Se o utilizador mencionar uma refeição das suas refeições planeadas (ex: "jantei"), utilize os macros planeados para preencher o JSON de Dieta.
+- Se o utilizador fizer uma pergunta sobre o seu plano de treino, dieta, ou macros (ex: "qual a minha dieta?"), extraia como "question" contendo a pergunta.
 - O campo "message" em unknown é OBRIGATÓRIO e deve conter uma resposta útil ao utilizador`;
 
 // ---------------------------------------------------------------------------
@@ -98,6 +103,15 @@ export class ParserAgent {
     return user as UserProfile | null;
   }
 
+  /** Busca as refeições planeadas do utilizador */
+  private async getScheduledMeals(userId: string) {
+    // @ts-ignore
+    return await prisma.scheduledMeal.findMany({
+      where: { userId },
+      select: { mealName: true, description: true, targetCalories: true, targetProtein: true, targetCarbs: true, targetFat: true }
+    });
+  }
+
   /**
    * Aplica a regra de negócio "de cada lado":
    * Converte weightPerSide em totalWeight usando o catálogo de exercícios.
@@ -109,7 +123,7 @@ export class ParserAgent {
     if (result.type !== "workout") return result;
 
     const exercises = result.exercises.map((exercise) => {
-      if (exercise.weightPerSide === undefined) return exercise;
+      if (exercise.weightPerSide == null) return exercise;
 
       const weightPerSide = exercise.weightPerSide;
       const nameLower = exercise.exerciseName.toLowerCase();
@@ -160,8 +174,11 @@ export class ParserAgent {
     // 1. Buscar catálogo (cache ou DB)
     const exerciseCatalog = await this.getExerciseCatalog();
 
-    // 2. Buscar perfil do utilizador
-    const userProfile = await this.getUserProfile(userId);
+    // 2. Buscar perfil do utilizador e refeições planeadas
+    const [userProfile, scheduledMeals] = await Promise.all([
+      this.getUserProfile(userId),
+      this.getScheduledMeals(userId)
+    ]);
 
     // 3. Construir system messages com prompt caching
     const systemMessages: Anthropic.TextBlockParam[] = [
@@ -177,7 +194,7 @@ export class ParserAgent {
       },
       {
         type: "text",
-        text: `Perfil do utilizador: ${JSON.stringify(userProfile)}`, // sem cache
+        text: `Perfil do utilizador: ${JSON.stringify(userProfile)}\nRefeições planeadas: ${JSON.stringify(scheduledMeals)}`, // sem cache
       },
     ];
 

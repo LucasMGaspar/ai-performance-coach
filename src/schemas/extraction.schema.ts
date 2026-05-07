@@ -6,12 +6,12 @@ import { z } from "zod";
 
 export const WorkoutExerciseSchema = z.object({
   exerciseName: z.string(),
-  weightPerSide: z.number().optional(),
-  totalWeight: z.number().optional(),
+  weightPerSide: z.number().nullish(),
+  totalWeight: z.number().nullish(),
   reps: z.number(),
   sets: z.number(),
-  rpe: z.number().min(1).max(10).optional(),
-  notes: z.string().optional(),
+  rpe: z.number().min(1).max(10).nullish(),
+  notes: z.string().nullish(),
 });
 
 export const WorkoutExtractionSchema = z.object({
@@ -22,24 +22,29 @@ export const WorkoutExtractionSchema = z.object({
 export const DietExtractionSchema = z.object({
   type: z.literal("diet"),
   meal: z.string(),
-  calories: z.number().optional(),
-  protein: z.number().optional(),
-  carbs: z.number().optional(),
-  fat: z.number().optional(),
-  description: z.string().optional(),
+  calories: z.number().nullish(),
+  protein: z.number().nullish(),
+  carbs: z.number().nullish(),
+  fat: z.number().nullish(),
+  description: z.string().nullish(),
 });
 
 export const CheckInExtractionSchema = z.object({
   type: z.literal("checkin"),
-  mood: z.number().min(1).max(10).optional(),
-  sleepQuality: z.number().min(1).max(10).optional(),
-  energyLevel: z.number().min(1).max(10).optional(),
-  notes: z.string().optional(),
+  mood: z.number().min(1).max(10).nullish(),
+  sleepQuality: z.number().min(1).max(10).nullish(),
+  energyLevel: z.number().min(1).max(10).nullish(),
+  notes: z.string().nullish(),
 });
 
 export const UnknownExtractionSchema = z.object({
   type: z.literal("unknown"),
   message: z.string(),
+});
+
+export const QuestionExtractionSchema = z.object({
+  type: z.literal("question"),
+  question: z.string(),
 });
 
 // ---------------------------------------------------------------------------
@@ -50,6 +55,7 @@ export const ExtractionSchema = z.discriminatedUnion("type", [
   WorkoutExtractionSchema,
   DietExtractionSchema,
   CheckInExtractionSchema,
+  QuestionExtractionSchema,
   UnknownExtractionSchema,
 ]);
 
@@ -60,6 +66,7 @@ export const ExtractionSchema = z.discriminatedUnion("type", [
 export type WorkoutExtraction = z.infer<typeof WorkoutExtractionSchema>;
 export type DietExtraction = z.infer<typeof DietExtractionSchema>;
 export type CheckInExtraction = z.infer<typeof CheckInExtractionSchema>;
+export type QuestionExtraction = z.infer<typeof QuestionExtractionSchema>;
 export type UnknownExtraction = z.infer<typeof UnknownExtractionSchema>;
 export type ExtractionResult = z.infer<typeof ExtractionSchema>;
 
