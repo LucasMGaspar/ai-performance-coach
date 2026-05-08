@@ -2,6 +2,7 @@
 
 // @ts-ignore — PrismaClient requer `prisma generate` para gerar tipos; ignorar até ao setup da DB
 import { prisma } from "../db/client.js";
+import { logger } from "../lib/logger";
 import { ragService } from "../services/rag.service.js";
 import { wapiService } from "../services/wapi.service.js";
 import type { NudgeType } from "../types/index.js";
@@ -98,7 +99,7 @@ class NudgeAgent {
       default: {
         // Exhaustive check — TypeScript garante que nudgeType é coberto acima
         const _exhaustive: never = nudgeType;
-        console.error("nudgeAgent: nudgeType desconhecido:", _exhaustive);
+        logger.error({ nudgeType: _exhaustive }, "nudgeAgent: nudgeType desconhecido");
         return false;
       }
     }

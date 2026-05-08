@@ -1,6 +1,7 @@
 import { anthropicClient as anthropic } from "../lib/anthropic";
 import { config } from "../config";
 import { redisService } from "../services/redis.service";
+import { logger } from "../lib/logger";
 // @ts-ignore — prisma generate necessário
 import { prisma } from "../db/client";
 import type {
@@ -40,7 +41,7 @@ async function extractJson<T>(prompt: string): Promise<T> {
     raw.match(/(\[[\s\S]*\])/) ??
     raw.match(/(\{[\s\S]*\})/);
   const jsonStr = match ? match[1] : raw;
-  console.log(`[extractJson] Model output:`, jsonStr);
+  logger.debug({ output: jsonStr }, "extractJson model output");
   return JSON.parse(jsonStr.trim()) as T;
 }
 

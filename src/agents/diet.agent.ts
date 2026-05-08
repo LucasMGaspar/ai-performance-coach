@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { anthropicClient } from "../lib/anthropic";
 // @ts-ignore
 import { prisma } from "../db/client";
+import { logger } from "../lib/logger";
 import { ragService } from "../services/rag.service";
 
 class DietAgent {
@@ -87,7 +88,7 @@ Lembre-se: Seja natural. Se ele perguntar "qual minha dieta", liste as refeiçõ
       }
       return "Não consegui formular uma resposta neste momento.";
     } catch (err) {
-      console.error("Erro no DietAgent:", err);
+      logger.error({ err }, "diet agent error");
       return "Desculpa, tive um problema ao analisar a tua dieta. Tenta de novo mais tarde.";
     }
   }

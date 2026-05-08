@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { ExerciseCatalog, User } from "@prisma/client";
 import { anthropicClient } from "../lib/anthropic";
 import { prisma } from "../db/client";
+import { logger } from "../lib/logger";
 import {
   parseExtraction,
   type ExtractionResult,
@@ -251,7 +252,7 @@ export class ParserAgent {
       return this.applyWeightPerSideRule(parsed, exerciseCatalog);
     } catch (err) {
       // Erro de rede, schema inválido ou tool_use ausente — devolver resposta segura
-      console.error("parser.agent: erro ao processar mensagem —", err);
+      logger.error({ err }, "parser.agent: erro ao processar mensagem");
       return {
         type: "unknown",
         message: "Não consegui processar a mensagem. Tenta de novo!",
