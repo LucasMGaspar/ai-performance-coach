@@ -1,5 +1,5 @@
 import { FastifyPluginAsync } from "fastify";
-import { createHash } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { config } from "../config";
 import { parserAgent } from "../agents/parser.agent";
 import { coachAgent } from "../agents/coach.agent";
@@ -28,6 +28,23 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
     // Ignorar mensagens enviadas pelo próprio bot
     if (body?.fromMe === true) {
       return reply.status(200).send({ ok: true });
+    }
+
+    // Autenticação HMAC — valida assinatura da w-api se header presente (soft mode)
+    const WAPI_SIGNATURE_HEADER = "x-hub-signature-256";
+    const receivedSig = request.headers[WAPI_SIGNATURE_HEADER] as string | undefined;
+    if (receivedSig) {
+      const expectedSig = `sha256=${createHmac("sha256", config.webhookSecret)
+        .update(JSON.stringify(body))
+        .digest("hex")}`;
+      const sigBuffer = Buffer.from(receivedSig);
+      const expectedBuffer = Buffer.from(expectedSig);
+      const sigMatch =
+        sigBuffer.length === expectedBuffer.length &&
+        timingSafeEqual(sigBuffer, expectedBuffer);
+      if (!sigMatch) {
+        return reply.status(200).send({ ok: true });
+      }
     }
 
     // Extrair campos do payload (estrutura real da w-api.app)
