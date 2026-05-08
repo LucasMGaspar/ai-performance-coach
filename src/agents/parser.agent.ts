@@ -201,7 +201,7 @@ export class ParserAgent {
     // 4. Chamar Claude com structured output manual (SDK ainda não suporta Zod nativo)
     try {
       const response = await this.client.messages.create({
-        model: "claude-sonnet-4-6",
+        model: "claude-sonnet-4-5",
         max_tokens: 1024,
         system: systemMessages,
         messages: [

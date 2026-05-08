@@ -34,7 +34,17 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
     const audioMediaKey = body?.msgContent?.audioMessage?.mediaKey;
     const isAudio = !!audioUrl;
 
-    let text = body?.msgContent?.conversation ?? "";
+    // Suporte para mensagens normais, respostas (extendedTextMessage) e legendas de imagem
+    let text = 
+      body?.msgContent?.conversation || 
+      (body?.msgContent as any)?.extendedTextMessage?.text || 
+      body?.msgContent?.imageMessage?.caption ||
+      "";
+
+    // Se não houver texto nem áudio, ignorar (evita processar recibos de entrega ou mensagens vazias)
+    if (!text && !isAudio) {
+      return reply.status(200).send({ ok: true });
+    }
 
     try {
       // Auto-registro: criar user na primeira mensagem
@@ -69,7 +79,9 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
 
       // Routing: se o utilizador ainda não fez onboarding, encaminha para o agente de onboarding
       if (!user.onboarded) {
+        console.log(`[Webhook] User ${phone} in onboarding. Text received: "${text}"`);
         const onboardingResponse = await onboardingAgent.handle(user.id, phone, text);
+        console.log(`[Webhook] Onboarding response for ${phone}: "${onboardingResponse}"`);
         wapiService.sendTyping(phone).catch(() => {});
         await wapiService.sendTextMessage(phone, onboardingResponse);
         return reply.status(200).send({ ok: true });

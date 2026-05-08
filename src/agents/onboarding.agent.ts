@@ -42,6 +42,7 @@ async function extractJson<T>(prompt: string): Promise<T> {
     raw.match(/(\[[\s\S]*\])/) ??
     raw.match(/(\{[\s\S]*\})/);
   const jsonStr = match ? match[1] : raw;
+  console.log(`[extractJson] Model output:`, jsonStr);
   return JSON.parse(jsonStr.trim()) as T;
 }
 
@@ -275,8 +276,8 @@ class OnboardingAgent {
     text: string,
     data: OnboardingData
   ): Promise<string> {
-    // Detectar se o texto é muito curto ou vago para ser uma descrição de refeições
-    const isVague = text.trim().split(/\s+/).length < 4;
+    // Detectar se o texto é completamente vazio ou curto demais para ser qualquer coisa
+    const isVague = text.trim().length < 2;
     if (isVague) {
       await redisService.updateOnboarding(phone, "meals", data);
       return (
