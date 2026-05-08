@@ -67,38 +67,52 @@ export default async function DietPage({ params }: { params: Promise<{ userId: s
           )}
         </div>
 
-        {/* Seção de registros extras (não previstos no plano) */}
-        {dietLogsToday.filter(log => 
-          !scheduledMeals.some((sm: any) => sm.mealName.toLowerCase().trim() === log.meal.toLowerCase().trim())
-        ).length > 0 && (
-          <div className="space-y-4 pt-4">
-            <h2 className="text-xs text-slate-500 font-bold uppercase tracking-widest pl-1">Registros Extras</h2>
-            {dietLogsToday.filter(log => 
-              !scheduledMeals.some((sm: any) => sm.mealName.toLowerCase().trim() === log.meal.toLowerCase().trim())
-            ).map(log => (
-              <GlassCard key={log.id}>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-cyan-500" />
-                      <h3 className="font-bold text-white">{log.meal}</h3>
+        </div>
+
+        {/* Seção de registros extras (incluindo duplicados e não previstos) */}
+        {(() => {
+          // Identificar quais logs já foram "usados" na lista acima (o primeiro de cada tipo)
+          const displayedLogIds = scheduledMeals
+            .map((sm: any) => dietLogsToday.find(log => log.meal.toLowerCase().trim() === sm.mealName.toLowerCase().trim())?.id)
+            .filter(Boolean);
+
+          const extraLogs = dietLogsToday.filter(log => !displayedLogIds.includes(log.id));
+
+          if (extraLogs.length === 0) return null;
+
+          return (
+            <div className="space-y-4 pt-4">
+              <div className="flex items-center gap-2 px-1">
+                <div className="h-px flex-1 bg-white/5" />
+                <h2 className="text-[10px] text-slate-500 font-bold uppercase tracking-widest whitespace-nowrap">Registros Extras / Duplicados</h2>
+                <div className="h-px flex-1 bg-white/5" />
+              </div>
+              
+              {extraLogs.map(log => (
+                <GlassCard key={log.id}>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-cyan-500" />
+                        <h3 className="font-bold text-white">{log.meal}</h3>
+                      </div>
+                      <p className="text-xs text-slate-400">{log.notes || "Sem descrição"}</p>
+                      <div className="flex gap-2 pt-1">
+                        <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400">{log.calories} kcal</span>
+                        <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400">{log.protein}g prot</span>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-400">{log.notes || "Sem descrição"}</p>
-                    <div className="flex gap-2 pt-1">
-                      <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400">{log.calories} kcal</span>
-                      <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400">{log.protein}g prot</span>
-                    </div>
+                    <form action={deleteDietLog.bind(null, userId, log.id)}>
+                      <button type="submit" className="text-slate-600 hover:text-red-400 transition-colors p-1" title="Excluir duplicata">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </form>
                   </div>
-                  <form action={deleteDietLog.bind(null, userId, log.id)}>
-                    <button type="submit" className="text-slate-600 hover:text-red-400 transition-colors p-1">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </form>
-                </div>
-              </GlassCard>
-            ))}
-          </div>
-        )}
+                </GlassCard>
+              ))}
+            </div>
+          );
+        })()}
 
         <GlassCard title="Dica da IA">
           <p className="text-xs text-slate-400 leading-relaxed italic">
