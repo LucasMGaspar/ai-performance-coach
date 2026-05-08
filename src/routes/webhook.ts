@@ -224,18 +224,47 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
         }
 
         case "diet": {
+          const startOfDay = new Date();
+          startOfDay.setHours(0, 0, 0, 0);
+
           // @ts-ignore — prisma generate necessário
-          await prisma.dietLog.create({
-            data: {
+          const existingLog = await prisma.dietLog.findFirst({
+            where: {
               userId: user.id,
-              meal: result.meal,
-              calories: result.calories ?? 0,
-              protein: result.protein ?? 0,
-              carbs: result.carbs ?? null,
-              fat: result.fat ?? null,
-              notes: result.description ?? null,
+              meal: { equals: result.meal, mode: "insensitive" },
+              date: { gte: startOfDay },
             },
           });
+
+          if (existingLog) {
+            // @ts-ignore
+            await prisma.dietLog.update({
+              where: { id: existingLog.id },
+              data: {
+                calories: result.calories ?? existingLog.calories,
+                protein: result.protein ?? existingLog.protein,
+                carbs: result.carbs ?? existingLog.carbs,
+                fat: result.fat ?? existingLog.fat,
+                notes: result.description ?? existingLog.notes,
+                date: new Date(), // Atualiza o timestamp para o mais recente
+              },
+            });
+            logger.info({ userId: user.id, meal: result.meal }, "webhook: diet log updated");
+          } else {
+            // @ts-ignore
+            await prisma.dietLog.create({
+              data: {
+                userId: user.id,
+                meal: result.meal,
+                calories: result.calories ?? 0,
+                protein: result.protein ?? 0,
+                carbs: result.carbs ?? null,
+                fat: result.fat ?? null,
+                notes: result.description ?? null,
+              },
+            });
+            logger.info({ userId: user.id, meal: result.meal }, "webhook: diet log created");
+          }
 
           responseMessage = await dietAgent.analyzeDietLog(user.id);
           await progressionService.updateStreak(user.id);

@@ -71,3 +71,12 @@ export async function toggleSupplement(userId: string, supplement: string) {
 
   revalidatePath(`/dashboard/${userId}`);
 }
+
+export async function deleteDietLog(userId: string, logId: string) {
+  await prisma.dietLog.delete({
+    where: { id: logId }
+  });
+
+  revalidatePath(`/dashboard/${userId}/dieta`);
+  revalidatePath(`/dashboard/${userId}`);
+}
