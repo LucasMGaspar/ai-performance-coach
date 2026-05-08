@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from "fastify";
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { config } from "../config";
+import { logger } from "../lib/logger";
 import { parserAgent } from "../agents/parser.agent";
 import { coachAgent } from "../agents/coach.agent";
 import { dietAgent } from "../agents/diet.agent";
@@ -110,9 +111,9 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
 
       // Routing: se o utilizador ainda não fez onboarding, encaminha para o agente de onboarding
       if (!user.onboarded) {
-        console.log(`[Webhook] User ${phone} in onboarding. Text received: "${text}"`);
+        logger.info({ phone }, "webhook: user in onboarding");
         const onboardingResponse = await onboardingAgent.handle(user.id, phone, text);
-        console.log(`[Webhook] Onboarding response for ${phone}: "${onboardingResponse}"`);
+        logger.info({ phone }, "webhook: onboarding response sent");
         wapiService.sendTyping(phone).catch(() => {});
         await wapiService.sendTextMessage(phone, onboardingResponse);
         return reply.status(200).send({ ok: true });
@@ -283,12 +284,7 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       const errStack = error instanceof Error ? error.stack : "";
-      request.log.error({ errMsg, errStack }, "Webhook error");
-      console.error("=== WEBHOOK ERROR ===");
-      console.error("Phone:", phone);
-      console.error("Message:", errMsg);
-      console.error("Stack:", errStack);
-      console.error("=====================");
+      logger.error({ phone, message: errMsg, stack: errStack }, "webhook error");
 
       // Tentar enviar mensagem de fallback — nunca retornar 5xx
       wapiService.sendTextMessage(phone, FALLBACK_MESSAGE).catch(() => {});
