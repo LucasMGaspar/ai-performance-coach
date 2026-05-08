@@ -67,8 +67,6 @@ export default async function DietPage({ params }: { params: Promise<{ userId: s
           )}
         </div>
 
-        </div>
-
         {/* Seção de registros extras (incluindo duplicados e não previstos) */}
         {(() => {
           // Identificar quais logs já foram "usados" na lista acima (o primeiro de cada tipo)
