@@ -141,38 +141,12 @@ export async function getUserDashboard(userId: string) {
     previousSession[exerciseName as string] = { date: lastDate, logs: lastSessionLogs };
   }
 
-  // --- CÁLCULO DE CONSISTÊNCIA REAL-TIME ---
-  const sevenDaysAgo = new Date(Date.now() - 7 * msPerDay);
-  const recentDiet = await prisma.dietLog.findMany({ 
-    where: { userId, date: { gte: sevenDaysAgo } } 
-  });
-  const recentWorkout = await prisma.workoutLog.findMany({ 
-    where: { userId, date: { gte: sevenDaysAgo } } 
-  });
-
-  const dietMap = new Map<string, number>();
-  recentDiet.forEach(l => {
-    const d = toLocalDateString(l.date);
-    dietMap.set(d, (dietMap.get(d) || 0) + l.calories);
-  });
-  const workoutSetRecent = new Set(recentWorkout.map(l => toLocalDateString(l.date)));
-
-  let dietPoints = 0;
-  const target = user.targetCalories || 2000;
-  dietMap.forEach(val => {
-    if (Math.abs(val - target) / target <= 0.15) dietPoints++;
-  });
-
-  const dietScore = (dietPoints / 7) * 50;
-  const workoutScore = Math.min((workoutSetRecent.size / 4) * 50, 50);
-  const calculatedScore = Math.round(dietScore + workoutScore);
-
   // Recordes batidos hoje
   const prsTodayCount = prs.filter(pr => toLocalDateString(pr.date) === toLocalDateString(today)).length;
   const totalSetsToday = workoutLogsToday.length; // Cada log é uma série
 
   return {
-    user: { ...user, consistencyScore: calculatedScore },
+    user,
     protocolDay,
     macrosToday,
     workoutLogsToday,
