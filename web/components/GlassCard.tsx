@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
 
-export function GlassCard({ children, title, icon, action }: { children: ReactNode; title?: string; icon?: ReactNode; action?: ReactNode }) {
+export function GlassCard({ children, title, icon, action, className }: { children: ReactNode; title?: string; icon?: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <div className="relative overflow-hidden bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-5 shadow-xl shadow-black/20">
+    <div className={`relative overflow-hidden bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-5 shadow-xl shadow-black/20 ${className || ''}`}>
       {/* Subtle top light effect */}
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       
