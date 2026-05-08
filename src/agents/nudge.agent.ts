@@ -11,7 +11,7 @@ import type { NudgeType } from "../types/index.js";
 // ---------------------------------------------------------------------------
 
 function dietNudgeMessage(mealLabel: string): string {
-  return `Ei! Ainda não registei o teu ${mealLabel}. Não te esqueças de registar o que comeste para manter os macros no caminho certo! 🥗`;
+  return `Ei! Ainda não registrei o seu ${mealLabel}. Não esqueça de registrar o que você comeu para manter os macros no caminho certo! 🥗`;
 }
 
 function workoutNudgeMessage(): string {

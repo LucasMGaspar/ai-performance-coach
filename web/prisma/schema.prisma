@@ -6,24 +6,71 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id             String   @id @default(cuid())
-  phoneNumber    String   @unique
-  name           String?
-  height         Float?
-  weightKg       Float?
-  age            Int?
-  tdee           Float?
-  targetCalories Float?
-  targetProtein  Float?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+enum Role {
+  USER
+  ADMIN
+}
 
-  workoutLogs WorkoutLog[]
-  dietLogs    DietLog[]
-  checkIns    DailyCheckIn[]
+model User {
+  id              String    @id @default(cuid())
+  phoneNumber     String    @unique
+  name            String?
+  height          Float?
+  weightKg        Float?
+  age             Int?
+  sex             String? // "masculino" | "feminino"
+  experienceLevel String? // "iniciante" | "intermédio" | "avançado"
+  goal            String? // "hipertrofia" | "emagrecimento" | etc
+  onboarded       Boolean   @default(false)
+  role            Role      @default(USER)
+  streakCount     Int       @default(0)
+  maxStreak       Int       @default(0)
+  lastLogAt       DateTime?
+  tdee            Float?
+  targetCalories  Float?
+  targetProtein   Float?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workoutLogs    WorkoutLog[]
+  dietLogs       DietLog[]
+  checkIns       DailyCheckIn[]
+  scheduledMeals ScheduledMeal[]
+  prs            ExercisePR[]
 
   @@map("users")
+}
+
+model ExercisePR {
+  id         String   @id @default(cuid())
+  userId     String
+  exerciseId String
+  weightKg   Float
+  reps       Int
+  date       DateTime @default(now())
+
+  user     User            @relation(fields: [userId], references: [id])
+  exercise ExerciseCatalog @relation(fields: [exerciseId], references: [id])
+
+  @@unique([userId, exerciseId])
+  @@map("exercise_prs")
+}
+
+model ScheduledMeal {
+  id             String @id @default(cuid())
+  userId         String
+  mealName       String // "Pequeno-almoço", "Almoço", etc
+  scheduledTime  String // "08:00"
+  description    String
+  targetCalories Float
+  targetProtein  Float
+  targetCarbs    Float?
+  targetFat      Float?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("scheduled_meals")
 }
 
 model ExerciseCatalog {
@@ -35,6 +82,7 @@ model ExerciseCatalog {
   barWeightKg Float?
 
   workoutLogs WorkoutLog[]
+  exercisePRs ExercisePR[]
 
   @@map("exercise_catalog")
 }

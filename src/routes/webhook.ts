@@ -9,6 +9,7 @@ import { wapiService } from "../services/wapi.service";
 import { redisService } from "../services/redis.service";
 // @ts-ignore — prisma generate necessário
 import { prisma } from "../db/client";
+import { progressionService } from "../services/progression.service";
 import type { WApiMessagePayload } from "../types";
 
 const FALLBACK_MESSAGE =
@@ -139,8 +140,16 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
               },
             });
 
+            // Verificar PR
+            const isPR = await progressionService.updatePR(
+              user.id,
+              resolvedExerciseId,
+              exercise.totalWeight ?? 0,
+              exercise.reps
+            );
+
             // Analisar treino e gerar resposta
-            const exerciseResponse = await coachAgent.analyzeWorkout(user.id, {
+            let exerciseResponse = await coachAgent.analyzeWorkout(user.id, {
               exerciseName: exercise.exerciseName,
               exerciseId: resolvedExerciseId,
               weightKg: exercise.totalWeight ?? 0,
@@ -151,11 +160,18 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
                 (exercise.totalWeight ?? 0) * exercise.reps * exercise.sets,
             });
 
+            if (isPR) {
+              exerciseResponse = `🏆 *NOVO RECORDE PESSOAL!* 🏆\n${exerciseResponse}`;
+            }
+
             // Acumular respostas se houver múltiplos exercícios/séries
             responseMessage = responseMessage 
               ? `${responseMessage}\n\n${exerciseResponse}` 
               : exerciseResponse;
           }
+
+          // Atualizar streak
+          await progressionService.updateStreak(user.id);
 
           // Se não havia exercícios, gerar mensagem genérica
           responseMessage ??= "Treino registado!";
@@ -177,6 +193,7 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
           });
 
           responseMessage = await dietAgent.analyzeDietLog(user.id);
+          await progressionService.updateStreak(user.id);
           break;
         }
 
@@ -200,6 +217,7 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
           responseMessage = await coachAgent.generateMotivationalCheckIn(
             user.name ?? null
           );
+          await progressionService.updateStreak(user.id);
           break;
         }
 

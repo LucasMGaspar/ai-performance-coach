@@ -39,7 +39,7 @@ class CoachAgent {
     current: WorkoutLogData
   ): string {
     if (logs.length === 0) {
-      return "Primeiro registo deste exercício! Continua assim.";
+      return "Primeiro registro deste exercício! Continue assim.";
     }
 
     const previous = logs[0]; // treino mais recente anterior
@@ -60,13 +60,13 @@ class CoachAgent {
       if (current.rpe <= 7) {
         // Fácil — aumentar carga
         const suggestedWeight = current.weightKg * 1.025; // +2.5%
-        suggestion += `RPE ${current.rpe} — podes aumentar para ~${Math.round(suggestedWeight)}kg na próxima sessão.`;
+        suggestion += `RPE ${current.rpe} — você pode aumentar para ~${Math.round(suggestedWeight)}kg na próxima sessão.`;
       } else if (current.rpe === 8) {
         // No limite — manter ou +1 rep
-        suggestion += `RPE 8 — mantém a carga e tenta +1 rep na próxima sessão.`;
+        suggestion += `RPE 8 — mantenha a carga e tente +1 rep na próxima sessão.`;
       } else {
         // RPE 9-10 — manter carga, focar execução
-        suggestion += `RPE ${current.rpe} — mantém a carga, foca na execução.`;
+        suggestion += `RPE ${current.rpe} — mantenha a carga, foque na execução.`;
       }
     }
 
@@ -91,7 +91,7 @@ class CoachAgent {
     );
 
     return (
-      `Registado! ${currentLog.exerciseName}: ${currentLog.weightKg}kg × ${currentLog.reps} × ${currentLog.sets} ` +
+      `Registrado! ${currentLog.exerciseName}: ${currentLog.weightKg}kg × ${currentLog.reps} × ${currentLog.sets} ` +
       `(volume: ${currentLog.volume}kg)\n${progressionSuggestion}`
     );
   }

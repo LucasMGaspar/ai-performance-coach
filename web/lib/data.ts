@@ -1,15 +1,15 @@
 import { prisma } from "./prisma";
 
-function startOfDayUTC() {
+function startOfDayLocal() {
   const d = new Date();
-  d.setUTCHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
   return d;
 }
 
 export async function getUserDashboard(userId: string) {
-  const today = startOfDayUTC();
+  const today = startOfDayLocal();
 
-  const [user, workoutLogsToday, dietLogsToday, allWorkoutLogs, checkIns, consistencyRaw] =
+  const [user, workoutLogsToday, dietLogsToday, allWorkoutLogs, checkIns, consistencyRaw, prs, scheduledMeals] =
     await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: userId } }),
 
@@ -48,6 +48,16 @@ export async function getUserDashboard(userId: string) {
           select: { date: true },
         }),
       ]),
+
+      prisma.exercisePR.findMany({
+        where: { userId },
+        include: { exercise: true },
+      }),
+
+      prisma.scheduledMeal.findMany({
+        where: { userId },
+        orderBy: { scheduledTime: "asc" },
+      }),
     ]);
 
   // Dia do protocolo (usando createdAt como dia 1)
@@ -68,15 +78,22 @@ export async function getUserDashboard(userId: string) {
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   );
 
-  // Heatmap — agrupar por dia (YYYY-MM-DD)
+  // Heatmap — agrupar por dia local (YYYY-MM-DD)
   const [workoutDays, dietDays] = consistencyRaw;
-  const workoutSet = new Set(workoutDays.map((r: any) => r.date.toISOString().slice(0, 10)));
-  const dietSet = new Set(dietDays.map((r: any) => r.date.toISOString().slice(0, 10)));
+  
+  const toLocalDateString = (date: Date) => {
+    const d = new Date(date);
+    // Ajuste simples para manter a data local ao converter para string
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const workoutSet = new Set(workoutDays.map((r: any) => toLocalDateString(r.date)));
+  const dietSet = new Set(dietDays.map((r: any) => toLocalDateString(r.date)));
 
   const heatmapDays: Array<{ date: string; type: "both" | "workout" | "diet" | "none" }> = [];
   for (let i = 83; i >= 0; i--) {
     const d = new Date(Date.now() - i * msPerDay);
-    const key = d.toISOString().slice(0, 10);
+    const key = toLocalDateString(d);
     const hasW = workoutSet.has(key);
     const hasD = dietSet.has(key);
     heatmapDays.push({
@@ -98,7 +115,7 @@ export async function getUserDashboard(userId: string) {
     if (!progressionMap.has(name)) progressionMap.set(name, { name, data: [] });
     const entry = progressionMap.get(name)!;
     if (entry.data.length < 15) {
-      entry.data.unshift({ date: log.date.toISOString().slice(0, 10), weight: log.weightKg, volume: log.volume });
+      entry.data.unshift({ date: toLocalDateString(log.date), weight: log.weightKg, volume: log.volume });
     }
   }
 
@@ -116,23 +133,58 @@ export async function getUserDashboard(userId: string) {
     if (pastLogs.length === 0) continue;
 
     // allWorkoutLogs está ordenado por date desc → primeiro = mais recente
-    const lastDate = pastLogs[0].date.toISOString().slice(0, 10);
+    const lastDate = toLocalDateString(pastLogs[0].date);
     const lastSessionLogs = pastLogs
-      .filter((l) => l.date.toISOString().slice(0, 10) === lastDate)
+      .filter((l) => toLocalDateString(l.date) === lastDate)
       .map((l) => ({ weightKg: l.weightKg, reps: l.reps, sets: l.sets, rpe: l.rpe }));
 
     previousSession[exerciseName as string] = { date: lastDate, logs: lastSessionLogs };
   }
 
+  // --- CÁLCULO DE CONSISTÊNCIA REAL-TIME ---
+  const sevenDaysAgo = new Date(Date.now() - 7 * msPerDay);
+  const recentDiet = await prisma.dietLog.findMany({ 
+    where: { userId, date: { gte: sevenDaysAgo } } 
+  });
+  const recentWorkout = await prisma.workoutLog.findMany({ 
+    where: { userId, date: { gte: sevenDaysAgo } } 
+  });
+
+  const dietMap = new Map<string, number>();
+  recentDiet.forEach(l => {
+    const d = toLocalDateString(l.date);
+    dietMap.set(d, (dietMap.get(d) || 0) + l.calories);
+  });
+  const workoutSetRecent = new Set(recentWorkout.map(l => toLocalDateString(l.date)));
+
+  let dietPoints = 0;
+  const target = user.targetCalories || 2000;
+  dietMap.forEach(val => {
+    if (Math.abs(val - target) / target <= 0.15) dietPoints++;
+  });
+
+  const dietScore = (dietPoints / 7) * 50;
+  const workoutScore = Math.min((workoutSetRecent.size / 4) * 50, 50);
+  const calculatedScore = Math.round(dietScore + workoutScore);
+
+  // Recordes batidos hoje
+  const prsTodayCount = prs.filter(pr => toLocalDateString(pr.date) === toLocalDateString(today)).length;
+  const totalSetsToday = workoutLogsToday.length; // Cada log é uma série
+
   return {
-    user,
+    user: { ...user, consistencyScore: calculatedScore },
     protocolDay,
     macrosToday,
     workoutLogsToday,
     dietLogsToday,
     tonnageToday,
+    totalSetsToday,
+    prsTodayCount,
     heatmapDays,
     checkIns,
+    prs,
+    scheduledMeals,
+    checkInToday: checkIns.find(c => toLocalDateString(c.date) === toLocalDateString(today)) || null,
     progression: Array.from(progressionMap.values()),
     previousSession,
   };

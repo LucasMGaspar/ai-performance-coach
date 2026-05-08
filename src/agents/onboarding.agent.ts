@@ -104,9 +104,9 @@ class OnboardingAgent {
   private async handleWelcome(phone: string): Promise<string> {
     await redisService.updateOnboarding(phone, "profile", {});
     return (
-      "Olá! 👋 Sou o teu coach de performance pessoal para os próximos 80 dias.\n\n" +
-      "Vou precisar de alguns dados para personalizar o teu protocolo.\n\n" +
-      "Para começar: qual é o teu nome, idade, sexo, peso e altura?\n" +
+      "Olá! 👋 Sou o seu coach de performance pessoal para os próximos 80 dias.\n\n" +
+      "Vou precisar de alguns dados para personalizar o seu protocolo.\n\n" +
+      "Para começar: qual é o seu nome, idade, sexo, peso e altura?\n" +
       "_(ex: Lucas, 25 anos, masculino, 80kg, 178cm)_"
     );
   }
@@ -151,7 +151,7 @@ class OnboardingAgent {
       await redisService.updateOnboarding(phone, "profile", merged);
       return (
         `Ainda preciso de mais alguns dados! Faltou: *${missing.join(", ")}*\n\n` +
-        `Podes completar? _(ex: 80kg, 178cm)_`
+        `Você pode completar? _(ex: 80kg, 178cm)_`
       );
     }
 
@@ -159,8 +159,8 @@ class OnboardingAgent {
 
     return (
       `Obrigado, ${merged.name}! 💪\n\n` +
-      `Qual é o teu nível de experiência no treino e o teu objetivo principal?\n` +
-      `_(ex: intermédio, hipertrofia)_`
+      `Qual é o seu nível de experiência no treino e o seu objetivo principal?\n` +
+      `_(ex: intermediário, hipertrofia)_`
     );
   }
 
@@ -191,8 +191,8 @@ class OnboardingAgent {
     if (!merged.weightKg || !merged.heightCm || !merged.age || !merged.sex) {
       await redisService.updateOnboarding(phone, "profile", merged);
       return (
-        `Parece que ainda faltam dados biométricos para calcular o teu TDEE. ` +
-        `Podes dizer-me o teu peso, altura, idade e sexo?\n` +
+        `Parece que ainda faltam dados biométricos para calcular o seu TDEE. ` +
+        `Pode me dizer o seu peso, altura, idade e sexo?\n` +
         `_(ex: 80kg, 178cm, 25 anos, masculino)_`
       );
     }
@@ -214,10 +214,10 @@ class OnboardingAgent {
     await redisService.updateOnboarding(phone, "calories_confirm", updatedData);
 
     return (
-      `Com base nos teus dados, calculei:\n\n` +
+      `Com base nos seus dados, calculei:\n\n` +
       `• TDEE: ~${tdee} kcal/dia\n` +
       `• Meta sugerida: *${targetCalories} kcal* | *${targetProtein}g proteína* (2.2g/kg)\n\n` +
-      `Confirmas estas metas ou queres ajustar? _(responde "sim" ou indica os valores que preferes)_`
+      `Confirma estas metas ou quer ajustar? _(responda "sim" ou indique os valores que prefere)_`
     );
   }
 
@@ -235,8 +235,8 @@ class OnboardingAgent {
       // Confirma mas valida que temos valores reais
       if (!updatedData.targetCalories || updatedData.targetCalories === 0) {
         return (
-          `Não consegui calcular as tuas metas automaticamente. ` +
-          `Podes indicar manualmente? _(ex: 3100 kcal e 170g proteína)_`
+          `Não consegui calcular as suas metas automaticamente. ` +
+          `Pode indicar manualmente? _(ex: 3100 kcal e 170g proteína)_`
         );
       }
     } else {
@@ -262,8 +262,8 @@ class OnboardingAgent {
 
     return (
       `Perfeito! Metas definidas: *${updatedData.targetCalories} kcal* | *${updatedData.targetProtein}g proteína* ✅\n\n` +
-      `Agora vamos à tua dieta. Descreve as tuas refeições diárias:\n` +
-      `quantas são, a que horas, e o que comes em cada uma.\n\n` +
+      `Agora vamos à sua dieta. Descreva as suas refeições diárias:\n` +
+      `quantas são, a que horas, e o que você come em cada uma.\n\n` +
       `_(ex: 8h aveia com whey, 13h frango com arroz, 20h salmão com batata doce)_`
     );
   }
@@ -281,14 +281,14 @@ class OnboardingAgent {
     if (isVague) {
       await redisService.updateOnboarding(phone, "meals", data);
       return (
-        `Por favor descreve as tuas refeições do dia com horário e o que comes.\n\n` +
+        `Por favor descreva as suas refeições do dia com horário e o que você come.\n\n` +
         `_(ex: 8h aveia com leite e whey, 12h frango com arroz, 16h iogurte grego, 20h carne com batata doce)_`
       );
     }
     const meals = await extractJson<ScheduledMealData[]>(
-      `Analisa a descrição de refeições seguinte e estima as macros de cada uma.\n` +
-        `Retorna APENAS um JSON array com os campos:\n` +
-        `  mealName (string — "Pequeno-almoço", "Almoço", "Lanche", "Jantar", etc),\n` +
+      `Analise a descrição de refeições seguinte e estime as macros de cada uma.\n` +
+        `Retorne APENAS um JSON array com os campos:\n` +
+        `  mealName (string — "Café da manhã", "Almoço", "Lanche", "Jantar", etc),\n` +
         `  scheduledTime (string — "08:00"),\n` +
         `  description (string — descrição breve dos alimentos),\n` +
         `  targetCalories (number),\n` +
@@ -305,7 +305,7 @@ class OnboardingAgent {
     const lines = meals
       .map((m) => {
         const icons: Record<string, string> = {
-          "pequeno-almoço": "🕗",
+          "café da manhã": "🕗",
           almoço: "🕛",
           lanche: "🕓",
           jantar: "🕗",
@@ -390,10 +390,10 @@ class OnboardingAgent {
       `Perfil configurado! 🎯\n\n` +
       `*Protocolo de 80 dias iniciado.*\n\n` +
       `A partir de hoje:\n` +
-      `• Regista os teus treinos aqui _(ex: Supino 80kg x 8 x 4)_\n` +
-      `• Envia o que comeste para registar a dieta\n` +
-      `• Faz check-in de bem-estar quando quiseres _(humor, sono, energia)_\n\n` +
-      `📊 O teu dashboard pessoal:\n${dashboardUrl}\n\n` +
+      `• Registre os seus treinos aqui _(ex: Supino 80kg x 8 x 4)_\n` +
+      `• Envie o que você comeu para registrar a dieta\n` +
+      `• Faça check-in de bem-estar quando quiser _(humor, sono, energia)_\n\n` +
+      `📊 O seu dashboard pessoal:\n${dashboardUrl}\n\n` +
       `Bora começar 💪`
     );
   }

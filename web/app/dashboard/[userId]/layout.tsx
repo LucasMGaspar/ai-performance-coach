@@ -1,12 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, Dumbbell, UtensilsCrossed, TrendingUp } from "lucide-react";
-
-const navItems = [
-  { href: "", label: "Overview", icon: LayoutDashboard },
-  { href: "/treino", label: "Treino", icon: Dumbbell },
-  { href: "/dieta", label: "Dieta", icon: UtensilsCrossed },
-  { href: "/graficos", label: "Gráficos", icon: TrendingUp },
-];
+import { LayoutDashboard, Dumbbell, Utensils, Trophy, Activity } from "lucide-react";
 
 export default async function DashboardLayout({
   children,
@@ -18,22 +11,31 @@ export default async function DashboardLayout({
   const { userId } = await params;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col">
-      <div className="flex-1 overflow-auto pb-20">{children}</div>
+    <div className="min-h-screen bg-[#020617] text-slate-200">
+      <div className="pb-24">{children}</div>
 
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex justify-around z-50">
-        {navItems.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={`/dashboard/${userId}${href}`}
-            className="flex flex-col items-center gap-0.5 py-3 px-4 text-slate-400 hover:text-cyan-400 transition-colors"
-          >
-            <Icon size={20} />
-            <span className="text-[10px]">{label}</span>
-          </Link>
-        ))}
-      </nav>
+      {/* Navigation Dock */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-sm z-50">
+        <div className="bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-2 flex justify-around items-center shadow-2xl shadow-black/50">
+          <NavItem href={`/dashboard/${userId}`} icon={<LayoutDashboard className="w-5 h-5" />} label="Início" />
+          <NavItem href={`/dashboard/${userId}/treino`} icon={<Dumbbell className="w-5 h-5" />} label="Treino" />
+          <NavItem href={`/dashboard/${userId}/dieta`} icon={<Utensils className="w-5 h-5" />} label="Dieta" />
+          <NavItem href={`/dashboard/${userId}/performance`} icon={<Trophy className="w-5 h-5" />} label="Recordes" />
+          <NavItem href={`/dashboard/${userId}/saude`} icon={<Activity className="w-5 h-5" />} label="Saúde" />
+        </div>
+      </div>
     </div>
+  );
+}
+
+function NavItem({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
+  return (
+    <Link 
+      href={href} 
+      className="flex flex-col items-center gap-1 p-2 text-slate-500 hover:text-white transition-all active:scale-90"
+    >
+      {icon}
+      <span className="text-[9px] font-bold uppercase tracking-tighter">{label}</span>
+    </Link>
   );
 }

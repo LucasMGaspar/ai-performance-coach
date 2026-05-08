@@ -52,9 +52,9 @@ export default function RegisterPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-w-md w-full text-center">
           <div className="text-5xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Registo completo!</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Registro completo!</h2>
           <p className="text-gray-600 mb-6">
-            O teu perfil foi criado. Já podes usar o AI Performance Coach no WhatsApp.
+            O seu perfil foi criado. Já pode usar o AI Performance Coach no WhatsApp.
           </p>
           <a
             href="/admin"
@@ -73,7 +73,7 @@ export default function RegisterPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">AI Performance Coach</h1>
           <p className="text-gray-500 mt-1 text-sm">
-            Preenche os teus dados para começar o protocolo de 80 dias.
+            Preencha seus dados para começar o protocolo de 80 dias.
           </p>
         </div>
 

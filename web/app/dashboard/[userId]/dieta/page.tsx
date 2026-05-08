@@ -1,89 +1,71 @@
+import { GlassCard } from "@/components/GlassCard";
+import { Utensils, CheckCircle2, Circle } from "lucide-react";
 import { getUserDashboard } from "@/lib/data";
-import { notFound } from "next/navigation";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default async function DietaPage({ params }: { params: Promise<{ userId: string }> }) {
+export default async function DietPage({ params }: { params: Promise<{ userId: string }> }) {
   const { userId } = await params;
-
-  let data;
-  try {
-    data = await getUserDashboard(userId);
-  } catch {
-    notFound();
-  }
-
-  const { user, macrosToday, dietLogsToday } = data;
-
-  const targets = {
-    calories: user.targetCalories ?? 2000,
-    protein: user.targetProtein ?? 150,
-    carbs: Math.round((user.targetCalories ?? 2000) * 0.4 / 4),
-    fat: Math.round((user.targetCalories ?? 2000) * 0.25 / 9),
-  };
-
-  function MacroBar({ label, current, target, color }: { label: string; current: number; target: number; color: string }) {
-    const pct = target > 0 ? Math.min(100, (current / target) * 100) : 0;
-    return (
-      <div>
-        <div className="flex justify-between text-xs mb-1">
-          <span className="text-slate-400">{label}</span>
-          <span className="text-white font-medium">{Math.round(current)} / {Math.round(target)}</span>
-        </div>
-        <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
-        </div>
-      </div>
-    );
-  }
+  const { scheduledMeals, dietLogsToday } = await getUserDashboard(userId);
 
   return (
-    <div className="p-4 space-y-4 max-w-lg mx-auto">
-      <div className="pt-2">
-        <h1 className="text-xl font-bold text-white">Dieta de Hoje</h1>
-        <p className="text-slate-400 text-sm">{dietLogsToday.length} refeição(ões) registada(s)</p>
+    <div className="min-h-screen bg-[#020617] text-slate-200">
+       <div className="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden -z-10">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-500/10 blur-[120px] rounded-full" />
       </div>
 
-      {/* Resumo de macros */}
-      <div className="bg-slate-800 rounded-xl p-4 space-y-3">
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="text-sm font-semibold text-slate-300">Balanço do dia</h2>
-          <span className={`text-sm font-bold ${macrosToday.calories >= targets.calories ? "text-cyan-400" : "text-slate-400"}`}>
-            {Math.round(macrosToday.calories)} kcal
-          </span>
+      <div className="p-5 pb-24 space-y-6 max-w-lg mx-auto">
+        <div className="pt-4">
+          <Link href={`/dashboard/${userId}`} className="text-xs text-cyan-400 font-bold uppercase tracking-widest mb-2 block">← Voltar</Link>
+          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            <Utensils className="text-orange-500 w-6 h-6" />
+            Protocolo Alimentar
+          </h1>
+          <p className="text-slate-500 text-sm mt-1">Comparativo entre o planeado e o realizado.</p>
         </div>
-        <MacroBar label="Calorias" current={macrosToday.calories} target={targets.calories} color="#22d3ee" />
-        <MacroBar label="Proteína (g)" current={macrosToday.protein} target={targets.protein} color="#4ade80" />
-        <MacroBar label="Carboidratos (g)" current={macrosToday.carbs} target={targets.carbs} color="#fb923c" />
-        <MacroBar label="Gordura (g)" current={macrosToday.fat} target={targets.fat} color="#a78bfa" />
-      </div>
 
-      {/* Lista de refeições */}
-      <div className="bg-slate-800 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-700">
-          <h2 className="text-sm font-semibold text-slate-300">Refeições registadas</h2>
+        <div className="space-y-4">
+          {scheduledMeals.length === 0 ? (
+            <p className="text-slate-500 text-center py-10 italic">Nenhum plano alimentar definido.</p>
+          ) : (
+            scheduledMeals.map((meal: any) => {
+              // Verificar se o utilizador já registou esta refeição hoje
+              // Lógica simples: se o nome da refeição aparecer nos logs de hoje
+              const isLogged = dietLogsToday.some(log => 
+                log.meal.toLowerCase().includes(meal.mealName.toLowerCase()) ||
+                meal.mealName.toLowerCase().includes(log.meal.toLowerCase())
+              );
+
+              return (
+                <GlassCard key={meal.id}>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        {isLogged ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Circle className="w-4 h-4 text-slate-700" />}
+                        <h3 className="font-bold text-white">{meal.mealName}</h3>
+                      </div>
+                      <p className="text-xs text-slate-400">{meal.scheduledTime} — {meal.description}</p>
+                      <div className="flex gap-2 pt-1">
+                        <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400">{meal.targetCalories} kcal</span>
+                        <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400">{meal.targetProtein}g prot</span>
+                      </div>
+                    </div>
+                    {isLogged && (
+                      <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter bg-emerald-500/10 px-2 py-1 rounded">Realizado</span>
+                    )}
+                  </div>
+                </GlassCard>
+              );
+            })
+          )}
         </div>
-        {dietLogsToday.length === 0 ? (
-          <p className="px-4 py-8 text-center text-slate-500 text-sm">
-            Nenhuma refeição registada hoje.<br />
-            <span className="text-xs text-slate-600">Envia no WhatsApp: "Almoço: frango com arroz, 500kcal, 40g proteína"</span>
+
+        <GlassCard title="Dica da IA">
+          <p className="text-xs text-slate-400 leading-relaxed italic">
+            "Parece que você está sendo consistente com o Café da manhã. Tente garantir que o Jantar não passe das 21h para melhorar a qualidade do sono."
           </p>
-        ) : (
-          dietLogsToday.map((log: any) => (
-            <div key={log.id} className="px-4 py-3 border-b border-slate-700/50 last:border-0">
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-medium text-white text-sm">{log.meal}</span>
-                <span className="text-cyan-400 text-sm font-bold">{Math.round(log.calories)} kcal</span>
-              </div>
-              <div className="flex gap-3 text-xs text-slate-500">
-                {log.protein > 0 && <span className="text-green-400">{Math.round(log.protein)}g prot</span>}
-                {log.carbs != null && log.carbs > 0 && <span className="text-orange-400">{Math.round(log.carbs)}g carbs</span>}
-                {log.fat != null && log.fat > 0 && <span className="text-purple-400">{Math.round(log.fat)}g fat</span>}
-                <span className="text-slate-600">{new Date(log.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
-              </div>
-            </div>
-          ))
-        )}
+        </GlassCard>
       </div>
     </div>
   );
