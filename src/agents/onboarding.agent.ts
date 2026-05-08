@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropicClient as anthropic } from "../lib/anthropic";
 import { config } from "../config";
 import { redisService } from "../services/redis.service";
 // @ts-ignore — prisma generate necessário
@@ -8,8 +8,6 @@ import type {
   OnboardingData,
   ScheduledMealData,
 } from "../types";
-
-const anthropic = new Anthropic({ apiKey: config.anthropicApiKey });
 
 // ---------------------------------------------------------------------------
 // Helpers
