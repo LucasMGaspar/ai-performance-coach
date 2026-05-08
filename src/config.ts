@@ -15,6 +15,9 @@ const envSchema = z.object({
   DASHBOARD_URL: z.string().default("http://localhost:3000"),
   PORT: z.string().default("3000"),
   NODE_ENV: z.string().default("development"),
+  LANGFUSE_PUBLIC_KEY: z.string().optional(),
+  LANGFUSE_SECRET_KEY: z.string().optional(),
+  LANGFUSE_HOST: z.string().optional(),
 });
 
 type EnvSchema = z.infer<typeof envSchema>;
@@ -45,6 +48,9 @@ export const config = {
   dashboardUrl: env.DASHBOARD_URL,
   port: parseInt(env.PORT, 10),
   nodeEnv: env.NODE_ENV,
+  langfusePublicKey: env.LANGFUSE_PUBLIC_KEY,
+  langfuseSecretKey: env.LANGFUSE_SECRET_KEY,
+  langfuseHost: env.LANGFUSE_HOST,
 } as const;
 
 export type Config = typeof config;
