@@ -44,6 +44,10 @@ export class ProgressionService {
     }
   }
 
+  private static toDayStart(d: Date): Date {
+    return new Date(d.toISOString().split("T")[0] + "T00:00:00.000Z");
+  }
+
   /**
    * Atualiza o streak do utilizador
    */
@@ -61,7 +65,9 @@ export class ProgressionService {
       if (!lastLog) {
         newStreak = 1;
       } else {
-        const diffInDays = Math.floor((now.getTime() - lastLog.getTime()) / (1000 * 60 * 60 * 24));
+        const todayStart = ProgressionService.toDayStart(now);
+        const lastLogStart = ProgressionService.toDayStart(lastLog);
+        const diffInDays = Math.round((todayStart.getTime() - lastLogStart.getTime()) / (1000 * 60 * 60 * 24));
         
         if (diffInDays === 1) {
           // Consecutivo
