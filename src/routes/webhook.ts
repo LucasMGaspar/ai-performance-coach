@@ -97,11 +97,18 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
       switch (result.type) {
         case "workout": {
           // Resolver exerciseId para cada exercício e salvar WorkoutLogs
+          // @ts-ignore — prisma generate necessário
+          const catalog = await prisma.exerciseCatalog.findMany();
+
+          if (catalog.length === 0) {
+            responseMessage = "⚠️ Catálogo de exercícios vazio. Contacta o administrador.";
+            break;
+          }
+
+          const unrecognizedExercises: string[] = [];
+
           for (const exercise of result.exercises) {
             // Buscar exercício no catálogo (case insensitive, por nome ou aliases)
-            // @ts-ignore — prisma generate necessário
-            const catalog = await prisma.exerciseCatalog.findMany();
-
             const nameLower = exercise.exerciseName.toLowerCase();
             const catalogEntry = catalog.find((entry: { name: string; aliases: string[] }) => {
               if (entry.name.toLowerCase().includes(nameLower) || nameLower.includes(entry.name.toLowerCase())) {
@@ -113,16 +120,12 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
               });
             });
 
-            // Fallback: usar o primeiro exercício do catálogo
-            const resolvedEntry = catalogEntry ?? catalog[0];
-
-            // Se o catálogo estiver vazio, não podemos salvar (FK inválida) — registar warning
-            if (!resolvedEntry) {
-              console.warn("workout: catálogo vazio — registo ignorado para:", exercise.exerciseName);
-              responseMessage = "⚠️ Catálogo de exercícios vazio. Contacta o administrador.";
+            if (!catalogEntry) {
+              unrecognizedExercises.push(exercise.exerciseName);
               continue;
             }
 
+            const resolvedEntry = catalogEntry;
             const resolvedExerciseId = resolvedEntry.id;
 
             // @ts-ignore — prisma generate necessário
@@ -165,13 +168,24 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
             }
 
             // Acumular respostas se houver múltiplos exercícios/séries
-            responseMessage = responseMessage 
-              ? `${responseMessage}\n\n${exerciseResponse}` 
+            responseMessage = responseMessage
+              ? `${responseMessage}\n\n${exerciseResponse}`
               : exerciseResponse;
           }
 
-          // Atualizar streak
-          await progressionService.updateStreak(user.id);
+          if (unrecognizedExercises.length > 0) {
+            const listagem = unrecognizedExercises.map(n => `• ${n}`).join("\n");
+            const avisoNaoReconhecido = `\n\n⚠️ Não reconheci ${unrecognizedExercises.length === 1 ? "este exercício" : "estes exercícios"} — não foram registados:\n${listagem}\n_Verifica o nome ou pede para adicionar ao catálogo._`;
+            responseMessage = responseMessage
+              ? `${responseMessage}${avisoNaoReconhecido}`
+              : avisoNaoReconhecido.trim();
+          }
+
+          // Atualizar streak apenas se pelo menos um exercício foi registado
+          const algumRegistado = result.exercises.length > unrecognizedExercises.length;
+          if (algumRegistado) {
+            await progressionService.updateStreak(user.id);
+          }
 
           // Se não havia exercícios, gerar mensagem genérica
           responseMessage ??= "Treino registado!";
