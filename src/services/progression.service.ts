@@ -1,4 +1,5 @@
 import { prisma } from "../db/client.js";
+import { logger } from "../lib/logger";
 
 export class ProgressionService {
   /**
@@ -39,7 +40,7 @@ export class ProgressionService {
       }
       return false;
     } catch (error) {
-      console.error("[ProgressionService] Error updating PR:", error);
+      logger.error({ error }, "ProgressionService: erro ao actualizar PR");
       return false;
     }
   }
@@ -92,7 +93,7 @@ export class ProgressionService {
       // Recalcular Score de Consistência
       await this.updateConsistencyScore(userId);
     } catch (error) {
-      console.error("[ProgressionService] Error updating streak:", error);
+      logger.error({ error }, "ProgressionService: erro ao actualizar streak");
     }
   }
 
@@ -144,7 +145,7 @@ export class ProgressionService {
         data: { consistencyScore: totalScore }
       });
     } catch (error) {
-      console.error("[ProgressionService] Error updating consistency score:", error);
+      logger.error({ error }, "ProgressionService: erro ao actualizar consistency score");
     }
   }
 }

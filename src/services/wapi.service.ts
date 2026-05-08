@@ -1,4 +1,5 @@
 import { config } from "../config";
+import { logger } from "../lib/logger";
 
 const BASE_URL = "https://api.w-api.app/v1";
 
@@ -26,9 +27,9 @@ class WApiService {
     });
 
     if (!response.ok) {
-      console.error(
-        `wapi: erro ao enviar mensagem — status ${response.status}`,
-        await response.text().catch(() => "")
+      logger.error(
+        { status: response.status, body: await response.text().catch(() => "") },
+        "wapi: erro ao enviar mensagem"
       );
       throw new Error("wapi: falha ao enviar mensagem");
     }

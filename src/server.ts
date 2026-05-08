@@ -1,6 +1,7 @@
 import Fastify, { FastifyInstance } from "fastify";
 import formbody from "@fastify/formbody";
 import { config } from "./config";
+import { logger } from "./lib/logger";
 import healthRoute from "./routes/health";
 import webhookRoute from "./routes/webhook";
 import nudgeRoute from "./routes/nudge";
@@ -39,6 +40,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error("Erro fatal ao iniciar o servidor:", err);
+  logger.fatal({ err }, "erro fatal ao iniciar o servidor");
   process.exit(1);
 });
