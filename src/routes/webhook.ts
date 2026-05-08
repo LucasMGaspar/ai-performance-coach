@@ -1,4 +1,5 @@
 import { FastifyPluginAsync } from "fastify";
+import { createHash } from "crypto";
 import { config } from "../config";
 import { parserAgent } from "../agents/parser.agent";
 import { coachAgent } from "../agents/coach.agent";
@@ -44,6 +45,18 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
 
     // Se não houver texto nem áudio, ignorar (evita processar recibos de entrega ou mensagens vazias)
     if (!text && !isAudio) {
+      return reply.status(200).send({ ok: true });
+    }
+
+    // Idempotência: evitar reprocessamento de retries do provider
+    const rawMessageId = body?.messageId;
+    const idempotencyKey = rawMessageId
+      ? rawMessageId
+      : createHash("sha256")
+          .update(`${phone}:${JSON.stringify(body?.msgContent)}`)
+          .digest("hex");
+
+    if (await redisService.isMessageProcessed(idempotencyKey)) {
       return reply.status(200).send({ ok: true });
     }
 
@@ -248,6 +261,7 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
       // Enviar resposta ao utilizador
       await wapiService.sendTextMessage(phone, responseMessage);
 
+      await redisService.setMessageProcessed(idempotencyKey);
       return reply.status(200).send({ ok: true });
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
