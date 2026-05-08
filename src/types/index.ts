@@ -40,6 +40,7 @@ export type OnboardingStep =
 // Payload real da w-api.app
 export interface WApiMessagePayload {
   event: string;
+  messageId?: string;
   instanceId: string;
   connectedPhone: string;
   fromMe: boolean;
