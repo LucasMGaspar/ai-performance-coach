@@ -31,10 +31,9 @@ export default async function DietPage({ params }: { params: Promise<{ userId: s
           ) : (
             scheduledMeals.map((meal: any) => {
               // Verificar se o utilizador já registou esta refeição hoje
-              // Lógica simples: se o nome da refeição aparecer nos logs de hoje
+              // Usando match exato para evitar que "Pequeno-almoço" marque "Almoço" como concluído
               const isLogged = dietLogsToday.some(log => 
-                log.meal.toLowerCase().includes(meal.mealName.toLowerCase()) ||
-                meal.mealName.toLowerCase().includes(log.meal.toLowerCase())
+                log.meal.toLowerCase().trim() === meal.mealName.toLowerCase().trim()
               );
 
               return (
