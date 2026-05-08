@@ -81,6 +81,21 @@ class RedisService {
     const key = this.buildKey(phone);
     await this.redis.del(key);
   }
+
+  private buildIdempotencyKey(id: string): string {
+    return `msg:idempotency:${id}`;
+  }
+
+  async isMessageProcessed(id: string): Promise<boolean> {
+    const key = this.buildIdempotencyKey(id);
+    const val = await this.redis.get(key);
+    return val !== null && val !== undefined;
+  }
+
+  async setMessageProcessed(id: string): Promise<void> {
+    const key = this.buildIdempotencyKey(id);
+    await this.redis.set(key, "1", { ex: 86400 });
+  }
 }
 
 export const redisService = new RedisService();
