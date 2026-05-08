@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { config } from "../config";
+import { anthropicClient } from "../lib/anthropic";
 // @ts-ignore
 import { prisma } from "../db/client";
 import { ragService } from "../services/rag.service";
@@ -8,9 +8,7 @@ class DietAgent {
   private client: Anthropic;
 
   constructor() {
-    this.client = new Anthropic({
-      apiKey: config.anthropicApiKey,
-    });
+    this.client = anthropicClient;
   }
 
   /**
