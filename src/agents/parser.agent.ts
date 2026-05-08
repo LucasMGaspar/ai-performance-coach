@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 // @ts-ignore — requer `npx prisma generate` após setup da DB para gerar tipos correctos
 import type { ExerciseCatalog, User } from "@prisma/client";
-import { config } from "../config";
+import { anthropicClient } from "../lib/anthropic";
 import { prisma } from "../db/client";
 import {
   parseExtraction,
@@ -91,9 +91,7 @@ export class ParserAgent {
   private readonly CACHE_TTL = 3_600_000; // 1 hora em ms
 
   constructor() {
-    this.client = new Anthropic({
-      apiKey: config.anthropicApiKey,
-    });
+    this.client = anthropicClient;
   }
 
   // -------------------------------------------------------------------------
