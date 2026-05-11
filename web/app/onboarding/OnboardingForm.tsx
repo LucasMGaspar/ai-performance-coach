@@ -2,17 +2,18 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { submitOnboarding, type MealInput } from "@/lib/actions";
+import { submitOnboarding, estimateDietMacros, type MealInput } from "@/lib/actions";
 import { Plus, Trash2, Calculator, X } from "lucide-react";
+
+type MealEstimate = { mealName: string; calories: number; protein: number; carbs: number; fat: number };
 
 type MacroPreview = {
   bmr: number;
   tdee: number;
   targetCalories: number;
   targetProtein: number;
-  perMealCalories: number;
-  perMealProtein: number;
   goalLabel: string;
+  foodEstimate: { meals: MealEstimate[]; total: MealEstimate } | null;
 };
 
 const DEFAULT_MEALS: MealInput[] = [
@@ -47,11 +48,12 @@ export function OnboardingForm() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [macroPreview, setMacroPreview] = useState<MacroPreview | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
   const router = useRouter();
 
   const canCalculate = !!profile.weightKg && !!profile.heightCm && !!profile.age;
 
-  const calculatePreview = () => {
+  const calculatePreview = async () => {
     const w = Number(profile.weightKg);
     const h = Number(profile.heightCm);
     const a = Number(profile.age);
@@ -73,15 +75,18 @@ export function OnboardingForm() {
       goalLower.includes("emagrec") ? "déficit de 15% para emagrecimento"
       : goalLower.includes("força") || goalLower.includes("manter") ? "manutenção"
       : "superávit de 10% para hipertrofia";
-    setMacroPreview({
-      bmr,
-      tdee,
-      targetCalories,
-      targetProtein,
-      perMealCalories: Math.round(targetCalories / meals.length),
-      perMealProtein: Math.round(targetProtein / meals.length),
-      goalLabel,
-    });
+
+    setIsCalculating(true);
+    setMacroPreview({ bmr, tdee, targetCalories, targetProtein, goalLabel, foodEstimate: null });
+
+    try {
+      const foodEstimate = await estimateDietMacros(
+        meals.map((m) => ({ mealName: m.mealName, description: m.description }))
+      );
+      setMacroPreview((prev) => prev ? { ...prev, foodEstimate } : prev);
+    } finally {
+      setIsCalculating(false);
+    }
   };
 
   const updateProfile = (field: keyof ProfileData, value: string) =>
@@ -342,17 +347,17 @@ export function OnboardingForm() {
       <button
         type="button"
         onClick={calculatePreview}
-        disabled={!canCalculate}
+        disabled={!canCalculate || isCalculating}
         title={!canCalculate ? "Preencha peso, altura e idade primeiro" : ""}
         className="w-full flex items-center justify-center gap-2 border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 font-bold py-3 rounded-2xl transition-colors text-sm"
       >
         <Calculator className="w-4 h-4" />
-        Calcular macros da minha dieta
+        {isCalculating ? "Calculando..." : "Calcular macros da minha dieta"}
       </button>
 
       {/* Painel de preview */}
       {macroPreview && (
-        <div className="bg-white/5 border border-orange-500/20 rounded-2xl p-5 space-y-4">
+        <div className="bg-white/5 border border-orange-500/20 rounded-2xl p-5 space-y-5">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-orange-400 uppercase tracking-widest">Resumo da sua dieta</p>
             <button type="button" onClick={() => setMacroPreview(null)} className="text-slate-600 hover:text-slate-400">
@@ -360,42 +365,75 @@ export function OnboardingForm() {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white/5 rounded-xl p-3">
-              <p className="text-[10px] text-slate-500 mb-1">Metabolismo basal (BMR)</p>
-              <p className="text-lg font-black text-white">{macroPreview.bmr.toLocaleString("pt-BR")}</p>
-              <p className="text-[10px] text-slate-600">kcal/dia em repouso</p>
-            </div>
-            <div className="bg-white/5 rounded-xl p-3">
-              <p className="text-[10px] text-slate-500 mb-1">Gasto total (TDEE)</p>
-              <p className="text-lg font-black text-white">{macroPreview.tdee.toLocaleString("pt-BR")}</p>
-              <p className="text-[10px] text-slate-600">kcal/dia c/ atividade</p>
-            </div>
-            <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">
-              <p className="text-[10px] text-orange-400 mb-1">Meta calórica</p>
-              <p className="text-lg font-black text-orange-400">{macroPreview.targetCalories.toLocaleString("pt-BR")}</p>
-              <p className="text-[10px] text-slate-500 capitalize">{macroPreview.goalLabel}</p>
-            </div>
-            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
-              <p className="text-[10px] text-blue-400 mb-1">Meta de proteína</p>
-              <p className="text-lg font-black text-blue-400">{macroPreview.targetProtein}g</p>
-              <p className="text-[10px] text-slate-500">2,2g por kg de peso</p>
+          {/* Metas pelo perfil */}
+          <div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-3">Metas pelo seu perfil</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white/5 rounded-xl p-3">
+                <p className="text-[10px] text-slate-500 mb-1">Metabolismo basal (BMR)</p>
+                <p className="text-lg font-black text-white">{macroPreview.bmr.toLocaleString("pt-BR")}</p>
+                <p className="text-[10px] text-slate-600">kcal/dia em repouso</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-3">
+                <p className="text-[10px] text-slate-500 mb-1">Gasto total (TDEE)</p>
+                <p className="text-lg font-black text-white">{macroPreview.tdee.toLocaleString("pt-BR")}</p>
+                <p className="text-[10px] text-slate-600">kcal/dia c/ atividade</p>
+              </div>
+              <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">
+                <p className="text-[10px] text-orange-400 mb-1">Meta calórica</p>
+                <p className="text-lg font-black text-orange-400">{macroPreview.targetCalories.toLocaleString("pt-BR")}</p>
+                <p className="text-[10px] text-slate-500 capitalize">{macroPreview.goalLabel}</p>
+              </div>
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
+                <p className="text-[10px] text-blue-400 mb-1">Meta de proteína</p>
+                <p className="text-lg font-black text-blue-400">{macroPreview.targetProtein}g</p>
+                <p className="text-[10px] text-slate-500">2,2g por kg de peso</p>
+              </div>
             </div>
           </div>
 
-          <div className="border-t border-white/5 pt-3">
-            <p className="text-[10px] text-slate-500 mb-2 uppercase tracking-widest">Distribuição por refeição ({meals.length} refeições)</p>
-            <div className="flex gap-4">
-              <div>
-                <span className="text-sm font-bold text-white">~{macroPreview.perMealCalories.toLocaleString("pt-BR")}</span>
-                <span className="text-[10px] text-slate-500 ml-1">kcal</span>
-              </div>
-              <div>
-                <span className="text-sm font-bold text-white">~{macroPreview.perMealProtein}g</span>
-                <span className="text-[10px] text-slate-500 ml-1">proteína</span>
+          {/* Estimativa pelos alimentos */}
+          {isCalculating && (
+            <div className="border-t border-white/5 pt-4">
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2">Estimativa dos seus alimentos</p>
+              <p className="text-xs text-slate-600">Analisando as descrições das refeições...</p>
+            </div>
+          )}
+
+          {!isCalculating && macroPreview.foodEstimate && macroPreview.foodEstimate.meals.length > 0 && (
+            <div className="border-t border-white/5 pt-4 space-y-3">
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest">Estimativa dos seus alimentos</p>
+
+              {macroPreview.foodEstimate.meals.map((m) => (
+                <div key={m.mealName} className="flex items-center justify-between py-2 border-b border-white/5">
+                  <span className="text-xs text-slate-400">{m.mealName}</span>
+                  <div className="flex gap-3 text-xs">
+                    <span className="text-white font-bold">{m.calories} kcal</span>
+                    <span className="text-blue-400">{m.protein}g prot</span>
+                    <span className="text-yellow-400">{m.carbs}g carb</span>
+                    <span className="text-pink-400">{m.fat}g gord</span>
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs font-bold text-slate-300">Total diário</span>
+                <div className="flex gap-3 text-xs">
+                  <span className="text-orange-400 font-black">{macroPreview.foodEstimate.total.calories} kcal</span>
+                  <span className="text-blue-400 font-bold">{macroPreview.foodEstimate.total.protein}g prot</span>
+                  <span className="text-yellow-400 font-bold">{macroPreview.foodEstimate.total.carbs}g carb</span>
+                  <span className="text-pink-400 font-bold">{macroPreview.foodEstimate.total.fat}g gord</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {!isCalculating && macroPreview.foodEstimate && macroPreview.foodEstimate.meals.length === 0 && (
+            <div className="border-t border-white/5 pt-4">
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Estimativa dos seus alimentos</p>
+              <p className="text-xs text-slate-600">Descreva o que costuma comer em cada refeição para ver os macros estimados.</p>
+            </div>
+          )}
         </div>
       )}
 

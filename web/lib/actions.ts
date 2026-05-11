@@ -2,6 +2,7 @@
 
 import { prisma } from "./prisma";
 import { revalidatePath } from "next/cache";
+import Anthropic from "@anthropic-ai/sdk";
 
 export async function updateWater(userId: string, liters: number) {
   const today = new Date();
@@ -195,6 +196,61 @@ export async function submitOnboarding(input: {
 
   revalidatePath(`/dashboard/${user.id}`);
   return { userId: user.id };
+}
+
+type MealEstimate = {
+  mealName: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+};
+
+export async function estimateDietMacros(
+  meals: { mealName: string; description: string }[]
+): Promise<{ meals: MealEstimate[]; total: MealEstimate }> {
+  const withDescription = meals.filter((m) => m.description.trim());
+  const empty: MealEstimate = { mealName: "Total", calories: 0, protein: 0, carbs: 0, fat: 0 };
+
+  if (withDescription.length === 0) {
+    return { meals: [], total: empty };
+  }
+
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const list = withDescription.map((m, i) => `${i + 1}. ${m.mealName}: ${m.description}`).join("\n");
+
+  const response = await client.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 512,
+    messages: [
+      {
+        role: "user",
+        content: `Estime os macros nutricionais para cada refeição abaixo. Responda APENAS com JSON válido, sem markdown, sem explicações.
+
+Refeições:
+${list}
+
+Formato:
+{"meals":[{"mealName":"...","calories":0,"protein":0,"carbs":0,"fat":0}]}`,
+      },
+    ],
+  });
+
+  const text = response.content[0].type === "text" ? response.content[0].text.trim() : "{}";
+  const parsed = JSON.parse(text) as { meals: MealEstimate[] };
+
+  const total = parsed.meals.reduce(
+    (acc, m) => ({
+      mealName: "Total",
+      calories: acc.calories + m.calories,
+      protein: acc.protein + m.protein,
+      carbs: acc.carbs + m.carbs,
+      fat: acc.fat + m.fat,
+    }),
+    empty
+  );
+
+  return { meals: parsed.meals, total };
 }
 
 export async function updateScheduledMeal(
