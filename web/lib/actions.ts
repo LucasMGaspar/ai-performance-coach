@@ -236,32 +236,103 @@ function getTacoData(): TacoEntry[] {
   return _tacoData;
 }
 
-// Supplementary table for common gym foods not in TACO (values per 100g)
+// Supplementary table for gym foods not in TACO (values per 100g, verified sources)
 const SUPPLEMENT_FOODS: (TacoEntry & { aliases: string[] })[] = [
+  // ── Proteínas em pó ──────────────────────────────────────────────────────
   {
-    id: 9001, description: "Whey protein", category: "Suplementos",
-    aliases: ["whey", "proteína whey", "whey protein"],
-    energy_kcal: 400, protein_g: 80, lipid_g: 5, carbohydrate_g: 10, fiber_g: 0,
+    id: 9001, description: "Whey protein concentrado (WPC 80%)", category: "Suplementos",
+    aliases: ["whey", "whey protein", "whey concentrado", "proteína whey"],
+    energy_kcal: 390, protein_g: 80, lipid_g: 4, carbohydrate_g: 8, fiber_g: 0,
   },
   {
-    id: 9002, description: "Azeite de oliva", category: "Gorduras",
-    aliases: ["azeite", "azeite oliva", "olive oil"],
+    id: 9002, description: "Whey protein isolado (WPI 90%)", category: "Suplementos",
+    aliases: ["whey isolado", "whey isolate", "wpi"],
+    energy_kcal: 370, protein_g: 90, lipid_g: 1, carbohydrate_g: 2, fiber_g: 0,
+  },
+  {
+    id: 9003, description: "Caseína micelar", category: "Suplementos",
+    aliases: ["caseína", "casein", "caseina", "proteína caseína"],
+    energy_kcal: 357, protein_g: 73, lipid_g: 1, carbohydrate_g: 14, fiber_g: 0,
+  },
+  {
+    id: 9004, description: "Proteína vegetal de soja isolada", category: "Suplementos",
+    aliases: ["proteína de soja", "soy protein", "proteína vegetal", "protein vegetal", "proteína em pó", "protein powder"],
+    energy_kcal: 360, protein_g: 91, lipid_g: 0.5, carbohydrate_g: 3, fiber_g: 0,
+  },
+  // ── Aminoácidos ───────────────────────────────────────────────────────────
+  {
+    id: 9005, description: "BCAA (2:1:1)", category: "Suplementos",
+    aliases: ["bcaa", "aminoácidos", "amino", "leucina isoleucina valina"],
+    energy_kcal: 350, protein_g: 88, lipid_g: 0, carbohydrate_g: 0, fiber_g: 0,
+  },
+  {
+    id: 9006, description: "Creatina monohidratada", category: "Suplementos",
+    aliases: ["creatina", "creatine", "creatina monohidratada"],
+    energy_kcal: 0, protein_g: 0, lipid_g: 0, carbohydrate_g: 0, fiber_g: 0,
+  },
+  // ── Carboidratos ──────────────────────────────────────────────────────────
+  {
+    id: 9007, description: "Maltodextrina", category: "Suplementos",
+    aliases: ["maltodextrina", "malto"],
+    energy_kcal: 380, protein_g: 0, lipid_g: 0, carbohydrate_g: 95, fiber_g: 0,
+  },
+  {
+    id: 9008, description: "Dextrose", category: "Suplementos",
+    aliases: ["dextrose", "glicose em pó", "glucose"],
+    energy_kcal: 380, protein_g: 0, lipid_g: 0, carbohydrate_g: 95, fiber_g: 0,
+  },
+  // ── Gorduras ─────────────────────────────────────────────────────────────
+  {
+    id: 9009, description: "Azeite de oliva", category: "Gorduras",
+    aliases: ["azeite", "azeite oliva", "azeite de oliva", "olive oil"],
     energy_kcal: 884, protein_g: 0, lipid_g: 100, carbohydrate_g: 0, fiber_g: 0,
   },
   {
-    id: 9003, description: "Queijo mussarela", category: "Laticínios",
-    aliases: ["mussarela", "muçarela", "queijo mussarela"],
+    id: 9010, description: "Óleo de coco", category: "Gorduras",
+    aliases: ["óleo de coco", "oleo de coco", "coconut oil"],
+    energy_kcal: 896, protein_g: 0, lipid_g: 99, carbohydrate_g: 0, fiber_g: 0,
+  },
+  {
+    id: 9011, description: "Pasta de amendoim integral", category: "Gorduras",
+    aliases: ["pasta de amendoim", "manteiga de amendoim", "peanut butter"],
+    energy_kcal: 580, protein_g: 25, lipid_g: 50, carbohydrate_g: 9, fiber_g: 6,
+  },
+  // ── Laticínios / derivados ────────────────────────────────────────────────
+  {
+    id: 9012, description: "Cottage cheese", category: "Laticínios",
+    aliases: ["cottage", "queijo cottage"],
+    energy_kcal: 98, protein_g: 11, lipid_g: 4.3, carbohydrate_g: 3.4, fiber_g: 0,
+  },
+  {
+    id: 9013, description: "Iogurte grego integral", category: "Laticínios",
+    aliases: ["iogurte grego", "yogurt grego", "iogurte grego integral"],
+    energy_kcal: 129, protein_g: 10, lipid_g: 7, carbohydrate_g: 3.5, fiber_g: 0,
+  },
+  {
+    id: 9014, description: "Queijo mussarela", category: "Laticínios",
+    aliases: ["mussarela", "muçarela", "queijo mussarela", "mozzarella"],
     energy_kcal: 264, protein_g: 20, lipid_g: 20, carbohydrate_g: 2, fiber_g: 0,
   },
   {
-    id: 9004, description: "Pão francês", category: "Cereais",
-    aliases: ["pão francês", "pao frances", "pão de sal"],
+    id: 9015, description: "Cream cheese", category: "Laticínios",
+    aliases: ["cream cheese", "queijo cremoso"],
+    energy_kcal: 342, protein_g: 5.9, lipid_g: 34, carbohydrate_g: 4.3, fiber_g: 0,
+  },
+  // ── Cereais / carboidratos ────────────────────────────────────────────────
+  {
+    id: 9016, description: "Pão francês", category: "Cereais",
+    aliases: ["pão francês", "pao frances", "pão de sal", "francês"],
     energy_kcal: 267, protein_g: 8, lipid_g: 1.2, carbohydrate_g: 55, fiber_g: 2.3,
   },
   {
-    id: 9005, description: "Proteína em pó (genérica)", category: "Suplementos",
-    aliases: ["proteína em pó", "protein powder", "caseína", "casein"],
-    energy_kcal: 380, protein_g: 75, lipid_g: 6, carbohydrate_g: 10, fiber_g: 0,
+    id: 9017, description: "Granola tradicional", category: "Cereais",
+    aliases: ["granola"],
+    energy_kcal: 415, protein_g: 9.7, lipid_g: 5, carbohydrate_g: 67, fiber_g: 5,
+  },
+  {
+    id: 9018, description: "Tapioca (goma hidratada, preparada)", category: "Cereais",
+    aliases: ["tapioca", "goma de tapioca", "polvilho"],
+    energy_kcal: 130, protein_g: 0.2, lipid_g: 0.3, carbohydrate_g: 32, fiber_g: 0.5,
   },
 ];
 
