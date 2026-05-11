@@ -121,8 +121,12 @@ export async function submitOnboarding(input: {
       : Math.round(tdee * 1.1);
   const targetProtein = Math.round(input.weightKg * 2.2);
 
+  // Normalizar telefone: apenas dígitos, garantir prefixo 55 para Brasil
+  const rawPhone = input.phone.replace(/\D/g, "");
+  const normalizedPhone = rawPhone.startsWith("55") ? rawPhone : `55${rawPhone}`;
+
   const user = await prisma.user.upsert({
-    where: { phoneNumber: input.phone },
+    where: { phoneNumber: normalizedPhone },
     update: {
       name: input.name,
       age: input.age,
@@ -136,7 +140,7 @@ export async function submitOnboarding(input: {
       onboarded: true,
     },
     create: {
-      phoneNumber: input.phone,
+      phoneNumber: normalizedPhone,
       name: input.name,
       age: input.age,
       sex: input.sex,
@@ -191,7 +195,7 @@ export async function submitOnboarding(input: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${wapiToken}`,
         },
-        body: JSON.stringify({ phone: input.phone, message: welcomeMessage, delayMessage: 1 }),
+        body: JSON.stringify({ phone: normalizedPhone, message: welcomeMessage, delayMessage: 1 }),
       }
     ).catch((err) => console.error("WAPI send-text error:", err));
   }
