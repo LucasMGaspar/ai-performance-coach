@@ -191,7 +191,7 @@ export async function submitOnboarding(input: {
         },
         body: JSON.stringify({ phone: input.phone, message: welcomeMessage, delayMessage: 1 }),
       }
-    ).catch(() => {});
+    ).catch((err) => console.error("WAPI send-text error:", err));
   }
 
   revalidatePath(`/dashboard/${user.id}`);

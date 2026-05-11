@@ -145,14 +145,22 @@ export function MealCard({ userId, meal, log }: Props) {
           <p className="text-xs text-slate-400">
             {meal.scheduledTime} — {meal.description}
           </p>
-          <div className="flex gap-2 pt-1">
-            <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400">
-              {meal.targetCalories} kcal
-            </span>
-            <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400">
-              {meal.targetProtein}g prot
-            </span>
-          </div>
+          {log ? (
+            <div className="flex gap-2 pt-1">
+              <span className="text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded text-emerald-400">
+                {log.calories} kcal
+              </span>
+              <span className="text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded text-emerald-400">
+                {log.protein}g prot
+              </span>
+            </div>
+          ) : (
+            <div className="flex gap-2 pt-1">
+              <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-600">
+                Não registrado
+              </span>
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-end gap-2">
           {log && (
