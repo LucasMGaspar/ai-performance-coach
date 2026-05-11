@@ -1,8 +1,9 @@
 import { GlassCard } from "@/components/GlassCard";
-import { Utensils, CheckCircle2, Circle, Trash2 } from "lucide-react";
+import { Utensils, CheckCircle2, Trash2 } from "lucide-react";
 import { getUserDashboard } from "@/lib/data";
 import { deleteDietLog } from "@/lib/actions";
 import Link from "next/link";
+import { MealCard } from "./MealCard";
 
 export const dynamic = "force-dynamic";
 
@@ -31,37 +32,11 @@ export default async function DietPage({ params }: { params: Promise<{ userId: s
             <p className="text-slate-500 text-center py-10 italic">Nenhum plano alimentar definido.</p>
           ) : (
             scheduledMeals.map((meal: any) => {
-              const log = dietLogsToday.find(log => 
-                log.meal.toLowerCase().trim() === meal.mealName.toLowerCase().trim()
+              const log = dietLogsToday.find(
+                (log: any) => log.meal.toLowerCase().trim() === meal.mealName.toLowerCase().trim()
               );
-              const isLogged = !!log;
-
               return (
-                <GlassCard key={meal.id}>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        {isLogged ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Circle className="w-4 h-4 text-slate-700" />}
-                        <h3 className="font-bold text-white">{meal.mealName}</h3>
-                      </div>
-                      <p className="text-xs text-slate-400">{meal.scheduledTime} — {meal.description}</p>
-                      <div className="flex gap-2 pt-1">
-                        <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400">{meal.targetCalories} kcal</span>
-                        <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400">{meal.targetProtein}g prot</span>
-                      </div>
-                    </div>
-                    {isLogged && (
-                      <div className="flex flex-col items-end gap-2">
-                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter bg-emerald-500/10 px-2 py-1 rounded">Realizado</span>
-                        <form action={deleteDietLog.bind(null, userId, log.id)}>
-                          <button type="submit" className="text-slate-600 hover:text-red-400 transition-colors p-1" title="Excluir registro">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </form>
-                      </div>
-                    )}
-                  </div>
-                </GlassCard>
+                <MealCard key={meal.id} userId={userId} meal={meal} log={log} />
               );
             })
           )}
