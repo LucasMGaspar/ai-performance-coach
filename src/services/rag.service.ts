@@ -34,6 +34,14 @@ interface DailyCheckIn {
   notes: string | null;
 }
 
+interface ExercisePRRecord {
+  id: string;
+  weightKg: number;
+  reps: number;
+  e1rmKg: number | null;
+  date: Date;
+}
+
 class RagService {
   /**
    * Busca os últimos 3 WorkoutLog do utilizador para um exercício específico.
@@ -231,6 +239,26 @@ class RagService {
     const mealsLogged = logs.map((log: { meal: string }) => log.meal);
 
     return { calories, protein, mealsLogged };
+  }
+
+  async getE1RMHistory(
+    userId: string,
+    exerciseId: string,
+    n: number
+  ): Promise<ExercisePRRecord[]> {
+    const logs = await prisma.workoutLog.findMany({
+      where: { userId, exerciseId },
+      orderBy: { date: "desc" },
+      take: n,
+      select: { id: true, weightKg: true, reps: true, date: true },
+    });
+    return logs.map((l: { id: string; weightKg: number; reps: number; date: Date }) => ({
+      id: l.id,
+      weightKg: l.weightKg,
+      reps: l.reps,
+      e1rmKg: +(l.weightKg * (1 + l.reps / 30)).toFixed(1),
+      date: l.date,
+    }));
   }
 }
 
