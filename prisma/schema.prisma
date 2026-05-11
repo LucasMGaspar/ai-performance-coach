@@ -65,8 +65,8 @@ model ScheduledMeal {
   mealName       String // "Pequeno-almoço", "Almoço", etc
   scheduledTime  String // "08:00"
   description    String
-  targetCalories Float
-  targetProtein  Float
+  targetCalories Float?
+  targetProtein  Float?
   targetCarbs    Float?
   targetFat      Float?
 

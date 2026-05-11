@@ -85,8 +85,6 @@ export type MealInput = {
   mealName: string;
   scheduledTime: string;
   description: string;
-  targetCalories: number;
-  targetProtein: number;
   targetCarbs?: number;
   targetFat?: number;
 };
@@ -149,6 +147,9 @@ export async function submitOnboarding(input: {
     },
   });
 
+  const perMealCalories = input.meals.length > 0 ? Math.round(targetCalories / input.meals.length) : 0;
+  const perMealProtein = input.meals.length > 0 ? Math.round(targetProtein / input.meals.length) : 0;
+
   await prisma.scheduledMeal.deleteMany({ where: { userId: user.id } });
   if (input.meals.length > 0) {
     await prisma.scheduledMeal.createMany({
@@ -157,8 +158,8 @@ export async function submitOnboarding(input: {
         mealName: m.mealName,
         scheduledTime: m.scheduledTime,
         description: m.description,
-        targetCalories: m.targetCalories,
-        targetProtein: m.targetProtein,
+        targetCalories: perMealCalories,
+        targetProtein: perMealProtein,
         targetCarbs: m.targetCarbs ?? null,
         targetFat: m.targetFat ?? null,
       })),
