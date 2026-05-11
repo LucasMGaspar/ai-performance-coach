@@ -66,6 +66,12 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
       return reply.status(200).send({ ok: true });
     }
 
+    // Rate limiting: máximo 20 mensagens por 60 segundos por phone
+    const withinLimit = await redisService.checkRateLimit(phone);
+    if (!withinLimit) {
+      return reply.status(200).send({ ok: true });
+    }
+
     // Idempotência: evitar reprocessamento de retries do provider
     const rawMessageId = body?.messageId;
     const idempotencyKey = rawMessageId
@@ -127,7 +133,6 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
       // Processar resultado consoante o tipo
       switch (result.type) {
         case "workout": {
-          // Resolver exerciseId para cada exercício e salvar WorkoutLogs
           // @ts-ignore — prisma generate necessário
           const catalog = await prisma.exerciseCatalog.findMany();
 
@@ -138,8 +143,19 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
 
           const unrecognizedExercises: string[] = [];
 
+          // Guardar exercícios registados para fire-and-forget do coach
+          const registeredExercises: Array<{
+            exerciseName: string;
+            exerciseId: string;
+            totalWeight: number;
+            reps: number;
+            sets: number;
+            rpe: number | undefined;
+            volume: number;
+            isPR: boolean;
+          }> = [];
+
           for (const exercise of result.exercises) {
-            // Buscar exercício no catálogo (case insensitive, por nome ou aliases)
             const nameLower = exercise.exerciseName.toLowerCase();
             const catalogEntry = catalog.find((entry: { name: string; aliases: string[] }) => {
               if (entry.name.toLowerCase().includes(nameLower) || nameLower.includes(entry.name.toLowerCase())) {
@@ -156,8 +172,7 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
               continue;
             }
 
-            const resolvedEntry = catalogEntry;
-            const resolvedExerciseId = resolvedEntry.id;
+            const resolvedExerciseId = catalogEntry.id;
 
             // @ts-ignore — prisma generate necessário
             await prisma.workoutLog.create({
@@ -168,13 +183,11 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
                 reps: exercise.reps,
                 sets: exercise.sets,
                 rpe: exercise.rpe ?? null,
-                volume:
-                  (exercise.totalWeight ?? 0) * exercise.reps * exercise.sets,
+                volume: (exercise.totalWeight ?? 0) * exercise.reps * exercise.sets,
                 rawInput: text,
               },
             });
 
-            // Verificar PR
             const isPR = await progressionService.updatePR(
               user.id,
               resolvedExerciseId,
@@ -182,44 +195,63 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
               exercise.reps
             );
 
-            // Analisar treino e gerar resposta
-            let exerciseResponse = await coachAgent.analyzeWorkout(user.id, {
+            registeredExercises.push({
               exerciseName: exercise.exerciseName,
               exerciseId: resolvedExerciseId,
-              weightKg: exercise.totalWeight ?? 0,
+              totalWeight: exercise.totalWeight ?? 0,
               reps: exercise.reps,
               sets: exercise.sets,
               rpe: exercise.rpe ?? undefined,
-              volume:
-                (exercise.totalWeight ?? 0) * exercise.reps * exercise.sets,
+              volume: (exercise.totalWeight ?? 0) * exercise.reps * exercise.sets,
+              isPR,
             });
-
-            if (isPR) {
-              exerciseResponse = `🏆 *NOVO RECORDE PESSOAL!* 🏆\n${exerciseResponse}`;
-            }
-
-            // Acumular respostas se houver múltiplos exercícios/séries
-            responseMessage = responseMessage
-              ? `${responseMessage}\n\n${exerciseResponse}`
-              : exerciseResponse;
           }
+
+          // Confirmação rápida síncrona
+          const confirmedLines = registeredExercises.map((e) => {
+            const prBadge = e.isPR ? "🏆 *NOVO RECORDE PESSOAL!* 🏆\n" : "";
+            return `${prBadge}${e.exerciseName}: ${e.totalWeight}kg × ${e.reps} × ${e.sets}`;
+          });
+          responseMessage =
+            confirmedLines.length > 0 ? `✅ Registrado!\n${confirmedLines.join("\n")}` : "";
 
           if (unrecognizedExercises.length > 0) {
-            const listagem = unrecognizedExercises.map(n => `• ${n}`).join("\n");
-            const avisoNaoReconhecido = `\n\n⚠️ Não reconheci ${unrecognizedExercises.length === 1 ? "este exercício" : "estes exercícios"} — não foram registados:\n${listagem}\n_Verifica o nome ou pede para adicionar ao catálogo._`;
+            const listagem = unrecognizedExercises.map((n) => `• ${n}`).join("\n");
+            const avisoNaoReconhecido = `⚠️ Não reconheci ${unrecognizedExercises.length === 1 ? "este exercício" : "estes exercícios"} — não foram registados:\n${listagem}\n_Verifica o nome ou pede para adicionar ao catálogo._`;
             responseMessage = responseMessage
-              ? `${responseMessage}${avisoNaoReconhecido}`
-              : avisoNaoReconhecido.trim();
+              ? `${responseMessage}\n\n${avisoNaoReconhecido}`
+              : avisoNaoReconhecido;
           }
 
-          // Atualizar streak apenas se pelo menos um exercício foi registado
-          const algumRegistado = result.exercises.length > unrecognizedExercises.length;
+          const algumRegistado = registeredExercises.length > 0;
           if (algumRegistado) {
             await progressionService.updateStreak(user.id);
           }
 
-          // Se não havia exercícios, gerar mensagem genérica
-          responseMessage ??= "Treino registado!";
+          responseMessage ||= "Treino registado!";
+
+          // Fire-and-forget: análise Claude como segunda mensagem
+          if (registeredExercises.length > 0) {
+            setImmediate(async () => {
+              try {
+                for (const e of registeredExercises) {
+                  const analysis = await coachAgent.analyzeWorkout(user.id, {
+                    exerciseName: e.exerciseName,
+                    exerciseId: e.exerciseId,
+                    weightKg: e.totalWeight,
+                    reps: e.reps,
+                    sets: e.sets,
+                    rpe: e.rpe,
+                    volume: e.volume,
+                  });
+                  await wapiService.sendTextMessage(phone, analysis);
+                }
+              } catch (err) {
+                logger.error({ phone, err }, "coach agent async error");
+              }
+            });
+          }
+
           break;
         }
 

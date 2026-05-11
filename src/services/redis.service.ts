@@ -96,6 +96,20 @@ class RedisService {
     const key = this.buildIdempotencyKey(id);
     await this.redis.set(key, "1", { ex: 86400 });
   }
+
+  async checkRateLimit(
+    phone: string,
+    max: number = 20,
+    windowSec: number = 60
+  ): Promise<boolean> {
+    const window = Math.floor(Date.now() / (windowSec * 1000));
+    const key = `ratelimit:${phone}:${window}`;
+    const count = await this.redis.incr(key);
+    if (count === 1) {
+      await this.redis.expire(key, windowSec);
+    }
+    return count <= max;
+  }
 }
 
 export const redisService = new RedisService();
