@@ -24,6 +24,16 @@ interface DietSummaryToday {
   mealsLogged: string[];
 }
 
+interface DailyCheckIn {
+  id: string;
+  userId: string;
+  date: Date;
+  mood: number;
+  sleepQuality: number;
+  energyLevel: number;
+  notes: string | null;
+}
+
 class RagService {
   /**
    * Busca os últimos 3 WorkoutLog do utilizador para um exercício específico.
@@ -119,6 +129,103 @@ class RagService {
     });
 
     return count > 0;
+  }
+
+  /**
+   * Busca os últimos N WorkoutLog do utilizador para um exercício específico.
+   * Generalização de getLast3Workouts com take configurável.
+   */
+  async getLastNWorkouts(
+    userId: string,
+    exerciseId: string,
+    n: number
+  ): Promise<WorkoutLog[]> {
+    const logs = await prisma.workoutLog.findMany({
+      where: { userId, exerciseId },
+      orderBy: { date: "desc" },
+      take: n,
+      select: {
+        id: true,
+        userId: true,
+        exerciseId: true,
+        date: true,
+        weightKg: true,
+        reps: true,
+        sets: true,
+        rpe: true,
+        volume: true,
+        rawInput: true,
+      },
+    });
+
+    return logs as WorkoutLog[];
+  }
+
+  /**
+   * Busca o histórico de DailyCheckIn do utilizador dos últimos N dias.
+   * Ordenado por date DESC.
+   */
+  async getCheckinHistory(
+    userId: string,
+    days: number
+  ): Promise<DailyCheckIn[]> {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const records = await prisma.dailyCheckIn.findMany({
+      where: {
+        userId,
+        date: { gte: since },
+      },
+      orderBy: { date: "desc" },
+      select: {
+        id: true,
+        userId: true,
+        date: true,
+        mood: true,
+        sleepQuality: true,
+        energyLevel: true,
+        notes: true,
+      },
+    });
+
+    return records as DailyCheckIn[];
+  }
+
+  /**
+   * Retorna sumário de dieta dos últimos N dias.
+   * Soma calories e protein; lista nomes das refeições registadas.
+   */
+  async getDietSummaryDays(
+    userId: string,
+    days: number
+  ): Promise<{ calories: number; protein: number; mealsLogged: string[] }> {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const logs = await prisma.dietLog.findMany({
+      where: {
+        userId,
+        date: { gte: since },
+      },
+      select: {
+        meal: true,
+        calories: true,
+        protein: true,
+      },
+    });
+
+    const calories = logs.reduce(
+      (sum: number, log: { calories: number }) => sum + log.calories,
+      0
+    );
+    const protein = logs.reduce(
+      (sum: number, log: { protein: number }) => sum + log.protein,
+      0
+    );
+    const mealsLogged = logs.map((log: { meal: string }) => log.meal);
+
+    return { calories, protein, mealsLogged };
   }
 }
 
