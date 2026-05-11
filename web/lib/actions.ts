@@ -195,3 +195,27 @@ export async function submitOnboarding(input: {
   revalidatePath(`/dashboard/${user.id}`);
   return { userId: user.id };
 }
+
+export async function updateScheduledMeal(
+  userId: string,
+  mealId: string,
+  data: {
+    mealName: string;
+    scheduledTime: string;
+    description: string;
+    targetCalories: number;
+    targetProtein: number;
+  }
+): Promise<void> {
+  await prisma.scheduledMeal.update({
+    where: { id: mealId },
+    data: {
+      mealName: data.mealName,
+      scheduledTime: data.scheduledTime,
+      description: data.description,
+      targetCalories: data.targetCalories,
+      targetProtein: data.targetProtein,
+    },
+  });
+  revalidatePath(`/dashboard/${userId}/dieta`);
+}
