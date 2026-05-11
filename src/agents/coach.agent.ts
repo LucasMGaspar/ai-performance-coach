@@ -21,18 +21,52 @@ export interface WorkoutLogData {
 const COACH_SYSTEM_PROMPT = `Você é um coach de Strength & Conditioning especializado em protocolos de 80 dias. Analise o treino registado e forneça feedback personalizado em português do Brasil.
 
 Processo de raciocínio:
-1. Consulte o histórico do exercício (get_exercise_history) para ver progressão
-2. Use get_e1rm_history para ver a evolução do E1RM ao longo das sessões. Expresse a carga actual como % do E1RM mais recente (ex: "80kg = 75% do teu E1RM de 107kg"). Se não houver histórico, use compute_e1rm para calcular o E1RM desta sessão
-3. Verifique plateau (detect_plateau) se houver histórico suficiente
-4. Se RPE alto ou volume baixo, verifique bem-estar recente (get_checkin_history, 3 dias)
-5. Se relevante para a progressão, consulte dieta recente (get_diet_summary, 1 dia)
+1. SEMPRE começa por get_user_insights para carregar o contexto de sessões anteriores
+2. Consulte o histórico do exercício (get_exercise_history) para ver progressão
+3. Use get_e1rm_history para ver a evolução do E1RM ao longo das sessões. Expresse a carga actual como % do E1RM mais recente (ex: "80kg = 75% do teu E1RM de 107kg"). Se não houver histórico, use compute_e1rm para calcular o E1RM desta sessão
+4. Verifique plateau (detect_plateau) se houver histórico suficiente
+5. Se RPE alto ou volume baixo, verifique bem-estar recente (get_checkin_history, 3 dias)
+6. Se detectares um padrão relevante (plateau persistente, deficit crónico, correlação sono/RPE), chama save_insight
 
 Output:
 - 1-3 frases naturais, tom de coach directo
-- 1 insight accionável específico (ex: "Na próxima sessão tente 82,5kg" ou "Sono baixo — priorize recuperação antes de aumentar carga")
+- 1 insight accionável específico
+- Se há insights anteriores relevantes, referencia-os (ex: "como notei na semana passada...")
 - Formato WhatsApp: sem markdown, máximo 4 linhas, use emojis com moderação`;
 
 const COACH_TOOLS: Anthropic.Tool[] = [
+  {
+    name: "get_user_insights",
+    description: "Get active insights and patterns detected in previous sessions for this user. Call this FIRST to have context from past analyses.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "save_insight",
+    description: "Save a new pattern or insight detected during analysis. Only save when you detect a meaningful pattern (plateau, chronic deficit, sleep correlation, etc). Updates existing insight of same type.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        type: {
+          type: "string",
+          enum: ["plateau", "nutrition_deficit", "sleep_fatigue", "pr_trend", "recovery_concern"],
+          description: "Category of the insight",
+        },
+        content: {
+          type: "string",
+          description: "Human-readable description of the pattern (in Portuguese)",
+        },
+        evidence: {
+          type: "string",
+          description: "Optional JSON string with supporting data",
+        },
+      },
+      required: ["type", "content"],
+    },
+  },
   {
     name: "get_exercise_history",
     description: "Get the last N workout sessions for a specific exercise for this user",
@@ -112,6 +146,18 @@ class CoachAgent {
     ctx: { analysisStartedAt: Date }
   ): Promise<unknown> {
     switch (toolName) {
+      case "get_user_insights": {
+        return ragService.getActiveInsights(userId);
+      }
+      case "save_insight": {
+        const { type, content, evidence } = input as {
+          type: string;
+          content: string;
+          evidence?: string;
+        };
+        await ragService.upsertInsight(userId, type, content, evidence);
+        return { saved: true };
+      }
       case "get_exercise_history": {
         const { exerciseId, n } = input as { exerciseId: string; n: number };
         return ragService.getLastNWorkouts(userId, exerciseId, Math.min(n, 10), ctx.analysisStartedAt);
