@@ -298,6 +298,24 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
             logger.info({ userId: user.id, meal: result.meal }, "webhook: diet log created");
           }
 
+          // Registar itens extras se existirem
+          if (result.extraItems && result.extraItems.length > 0) {
+            for (const extra of result.extraItems) {
+              // @ts-ignore
+              await prisma.dietLog.create({
+                data: {
+                  userId: user.id,
+                  meal: `${result.meal} - ${extra.name}`,
+                  calories: extra.calories,
+                  protein: extra.protein,
+                  carbs: extra.carbs ?? null,
+                  fat: extra.fat ?? null,
+                  notes: extra.quantity ? `Extra: ${extra.quantity}` : "Item extra",
+                },
+              });
+            }
+          }
+
           responseMessage = await dietAgent.analyzeDietLog(user.id);
           await progressionService.updateStreak(user.id);
           break;
