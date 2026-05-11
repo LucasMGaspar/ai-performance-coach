@@ -3,7 +3,17 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { submitOnboarding, type MealInput } from "@/lib/actions";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Calculator, X } from "lucide-react";
+
+type MacroPreview = {
+  bmr: number;
+  tdee: number;
+  targetCalories: number;
+  targetProtein: number;
+  perMealCalories: number;
+  perMealProtein: number;
+  goalLabel: string;
+};
 
 const DEFAULT_MEALS: MealInput[] = [
   { mealName: "Café da manhã", scheduledTime: "08:00", description: "" },
@@ -36,7 +46,43 @@ export function OnboardingForm() {
   const [meals, setMeals] = useState<MealInput[]>(DEFAULT_MEALS);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [macroPreview, setMacroPreview] = useState<MacroPreview | null>(null);
   const router = useRouter();
+
+  const canCalculate = !!profile.weightKg && !!profile.heightCm && !!profile.age;
+
+  const calculatePreview = () => {
+    const w = Number(profile.weightKg);
+    const h = Number(profile.heightCm);
+    const a = Number(profile.age);
+    const bmr = Math.round(
+      profile.sex === "masculino"
+        ? 10 * w + 6.25 * h - 5 * a + 5
+        : 10 * w + 6.25 * h - 5 * a - 161
+    );
+    const tdee = Math.round(bmr * 1.55);
+    const goalLower = profile.goal.toLowerCase();
+    const targetCalories =
+      goalLower.includes("emagrec")
+        ? Math.round(tdee * 0.85)
+        : goalLower.includes("força") || goalLower.includes("manter")
+        ? tdee
+        : Math.round(tdee * 1.1);
+    const targetProtein = Math.round(w * 2.2);
+    const goalLabel =
+      goalLower.includes("emagrec") ? "déficit de 15% para emagrecimento"
+      : goalLower.includes("força") || goalLower.includes("manter") ? "manutenção"
+      : "superávit de 10% para hipertrofia";
+    setMacroPreview({
+      bmr,
+      tdee,
+      targetCalories,
+      targetProtein,
+      perMealCalories: Math.round(targetCalories / meals.length),
+      perMealProtein: Math.round(targetProtein / meals.length),
+      goalLabel,
+    });
+  };
 
   const updateProfile = (field: keyof ProfileData, value: string) =>
     setProfile((p) => ({ ...p, [field]: value }));
@@ -291,6 +337,67 @@ export function OnboardingForm() {
           </button>
         )}
       </div>
+
+      {/* Botão calcular macros */}
+      <button
+        type="button"
+        onClick={calculatePreview}
+        disabled={!canCalculate}
+        title={!canCalculate ? "Preencha peso, altura e idade primeiro" : ""}
+        className="w-full flex items-center justify-center gap-2 border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 font-bold py-3 rounded-2xl transition-colors text-sm"
+      >
+        <Calculator className="w-4 h-4" />
+        Calcular macros da minha dieta
+      </button>
+
+      {/* Painel de preview */}
+      {macroPreview && (
+        <div className="bg-white/5 border border-orange-500/20 rounded-2xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-orange-400 uppercase tracking-widest">Resumo da sua dieta</p>
+            <button type="button" onClick={() => setMacroPreview(null)} className="text-slate-600 hover:text-slate-400">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white/5 rounded-xl p-3">
+              <p className="text-[10px] text-slate-500 mb-1">Metabolismo basal (BMR)</p>
+              <p className="text-lg font-black text-white">{macroPreview.bmr.toLocaleString("pt-BR")}</p>
+              <p className="text-[10px] text-slate-600">kcal/dia em repouso</p>
+            </div>
+            <div className="bg-white/5 rounded-xl p-3">
+              <p className="text-[10px] text-slate-500 mb-1">Gasto total (TDEE)</p>
+              <p className="text-lg font-black text-white">{macroPreview.tdee.toLocaleString("pt-BR")}</p>
+              <p className="text-[10px] text-slate-600">kcal/dia c/ atividade</p>
+            </div>
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">
+              <p className="text-[10px] text-orange-400 mb-1">Meta calórica</p>
+              <p className="text-lg font-black text-orange-400">{macroPreview.targetCalories.toLocaleString("pt-BR")}</p>
+              <p className="text-[10px] text-slate-500 capitalize">{macroPreview.goalLabel}</p>
+            </div>
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
+              <p className="text-[10px] text-blue-400 mb-1">Meta de proteína</p>
+              <p className="text-lg font-black text-blue-400">{macroPreview.targetProtein}g</p>
+              <p className="text-[10px] text-slate-500">2,2g por kg de peso</p>
+            </div>
+          </div>
+
+          <div className="border-t border-white/5 pt-3">
+            <p className="text-[10px] text-slate-500 mb-2 uppercase tracking-widest">Distribuição por refeição ({meals.length} refeições)</p>
+            <div className="flex gap-4">
+              <div>
+                <span className="text-sm font-bold text-white">~{macroPreview.perMealCalories.toLocaleString("pt-BR")}</span>
+                <span className="text-[10px] text-slate-500 ml-1">kcal</span>
+              </div>
+              <div>
+                <span className="text-sm font-bold text-white">~{macroPreview.perMealProtein}g</span>
+                <span className="text-[10px] text-slate-500 ml-1">proteína</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
