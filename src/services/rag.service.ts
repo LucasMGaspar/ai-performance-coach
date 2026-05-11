@@ -42,6 +42,14 @@ interface ExercisePRRecord {
   date: Date;
 }
 
+interface UserInsightRecord {
+  id: string;
+  type: string;
+  content: string;
+  evidence: string | null;
+  createdAt: Date;
+}
+
 class RagService {
   /**
    * Busca os últimos 3 WorkoutLog do utilizador para um exercício específico.
@@ -259,6 +267,32 @@ class RagService {
       e1rmKg: +(l.weightKg * (1 + l.reps / 30)).toFixed(1),
       date: l.date,
     }));
+  }
+
+  async getActiveInsights(userId: string): Promise<UserInsightRecord[]> {
+    const records = await prisma.userInsight.findMany({
+      where: { userId, active: true },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, type: true, content: true, evidence: true, createdAt: true },
+    });
+    return records as UserInsightRecord[];
+  }
+
+  async upsertInsight(
+    userId: string,
+    type: string,
+    content: string,
+    evidence?: string
+  ): Promise<void> {
+    // @ts-ignore
+    await prisma.userInsight.updateMany({
+      where: { userId, type, active: true },
+      data: { active: false },
+    });
+    // @ts-ignore
+    await prisma.userInsight.create({
+      data: { userId, type, content, evidence: evidence ?? null, active: true },
+    });
   }
 }
 
