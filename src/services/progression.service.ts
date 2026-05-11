@@ -1,6 +1,25 @@
 import { prisma } from "../db/client.js";
 import { logger } from "../lib/logger";
 
+export function toDayStart(d: Date): Date {
+  return new Date(d.toISOString().split("T")[0] + "T00:00:00.000Z");
+}
+
+export function calcNewStreak(
+  now: Date,
+  lastLog: Date | null,
+  currentStreak: number
+): number {
+  if (!lastLog) return 1;
+  const diffInDays = Math.round(
+    (toDayStart(now).getTime() - toDayStart(lastLog).getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+  if (diffInDays === 1) return currentStreak + 1;
+  if (diffInDays > 1) return 1;
+  return currentStreak; // mesmo dia
+}
+
 export class ProgressionService {
   /**
    * Verifica se o treino atual é um recorde pessoal (PR) e atualiza a tabela se for.
@@ -45,10 +64,6 @@ export class ProgressionService {
     }
   }
 
-  private static toDayStart(d: Date): Date {
-    return new Date(d.toISOString().split("T")[0] + "T00:00:00.000Z");
-  }
-
   /**
    * Atualiza o streak do utilizador
    */
@@ -59,26 +74,7 @@ export class ProgressionService {
       if (!user) return;
 
       const now = new Date();
-      const lastLog = user.lastLogAt;
-
-      let newStreak = user.streakCount;
-
-      if (!lastLog) {
-        newStreak = 1;
-      } else {
-        const todayStart = ProgressionService.toDayStart(now);
-        const lastLogStart = ProgressionService.toDayStart(lastLog);
-        const diffInDays = Math.round((todayStart.getTime() - lastLogStart.getTime()) / (1000 * 60 * 60 * 24));
-        
-        if (diffInDays === 1) {
-          // Consecutivo
-          newStreak += 1;
-        } else if (diffInDays > 1) {
-          // Quebrou o streak
-          newStreak = 1;
-        }
-        // Se diffInDays === 0, já logou hoje, manter o streak
-      }
+      const newStreak = calcNewStreak(now, user.lastLogAt, user.streakCount);
 
       // @ts-ignore
       await prisma.user.update({
@@ -90,7 +86,6 @@ export class ProgressionService {
         },
       });
 
-      // Recalcular Score de Consistência
       await this.updateConsistencyScore(userId);
     } catch (error) {
       logger.error({ error }, "ProgressionService: erro ao actualizar streak");
