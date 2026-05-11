@@ -85,6 +85,22 @@ const EXTRACTION_TOOL: Anthropic.Tool = {
       carbs: { type: "number", description: "Hidratos em gramas" },
       fat: { type: "number", description: "Gordura em gramas" },
       description: { type: "string", description: "Descrição livre da refeição" },
+      extraItems: {
+        type: "array",
+        description: "Itens extras consumidos além da refeição principal (ex: '+ 100g de purê'). Apenas para type=diet.",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Nome do item extra" },
+            quantity: { type: "string", description: "Quantidade mencionada (ex: '100g')" },
+            calories: { type: "number", description: "Calorias estimadas" },
+            protein: { type: "number", description: "Proteína em gramas estimada" },
+            carbs: { type: "number", description: "Hidratos em gramas estimados" },
+            fat: { type: "number", description: "Gordura em gramas estimada" },
+          },
+          required: ["name", "calories", "protein"],
+        },
+      },
       mood: { type: "integer", description: "Humor 1-10 (apenas para type=checkin)" },
       sleepQuality: { type: "integer", description: "Qualidade do sono 1-10" },
       energyLevel: { type: "integer", description: "Nível de energia 1-10" },
@@ -110,7 +126,8 @@ REGRAS:
 - O campo "exercises" é SEMPRE um array (mesmo com 1 exercício)
 - Se o utilizador mencionar uma refeição das suas refeições planeadas (ex: "jantei"), utilize os macros planeados para preencher os campos de Dieta
 - Se o utilizador fizer uma pergunta sobre o seu plano de treino, dieta, ou macros (ex: "qual a minha dieta?"), use type="question" com a pergunta
-- O campo "message" em type="unknown" é OBRIGATÓRIO e deve conter uma resposta útil ao utilizador em português`;
+- O campo "message" em type="unknown" é OBRIGATÓRIO e deve conter uma resposta útil ao utilizador em português
+- Se o utilizador mencionar itens extras além da refeição principal (ex: "+ 100g de purê", "mais um iogurte"), preencher extraItems com cada item e estimar os seus macros. Os macros da refeição principal mantêm-se inalterados.`;
 
 // ---------------------------------------------------------------------------
 // Tipos internos

@@ -19,6 +19,15 @@ export const WorkoutExtractionSchema = z.object({
   exercises: z.array(WorkoutExerciseSchema),
 });
 
+export const ExtraDietItemSchema = z.object({
+  name: z.string(),
+  quantity: z.string().nullish(),
+  calories: z.number(),
+  protein: z.number(),
+  carbs: z.number().nullish(),
+  fat: z.number().nullish(),
+});
+
 export const DietExtractionSchema = z.object({
   type: z.literal("diet"),
   meal: z.string(),
@@ -27,6 +36,7 @@ export const DietExtractionSchema = z.object({
   carbs: z.number().nullish(),
   fat: z.number().nullish(),
   description: z.string().nullish(),
+  extraItems: z.array(ExtraDietItemSchema).nullish(),
 });
 
 export const CheckInExtractionSchema = z.object({
@@ -64,6 +74,7 @@ export const ExtractionSchema = z.discriminatedUnion("type", [
 // ---------------------------------------------------------------------------
 
 export type WorkoutExtraction = z.infer<typeof WorkoutExtractionSchema>;
+export type ExtraDietItem = z.infer<typeof ExtraDietItemSchema>;
 export type DietExtraction = z.infer<typeof DietExtractionSchema>;
 export type CheckInExtraction = z.infer<typeof CheckInExtractionSchema>;
 export type QuestionExtraction = z.infer<typeof QuestionExtractionSchema>;
