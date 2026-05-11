@@ -33,8 +33,6 @@ export type OnboardingStep =
   | "profile"
   | "experience_goal"
   | "calories_confirm"
-  | "meals"
-  | "meals_confirm"
   | "complete";
 
 // Payload real da w-api.app
