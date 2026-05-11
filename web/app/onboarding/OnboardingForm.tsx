@@ -49,6 +49,7 @@ export function OnboardingForm() {
   const [error, setError] = useState<string | null>(null);
   const [macroPreview, setMacroPreview] = useState<MacroPreview | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [foodEstimateError, setFoodEstimateError] = useState<string | null>(null);
   const router = useRouter();
 
   const canCalculate = !!profile.weightKg && !!profile.heightCm && !!profile.age;
@@ -77,6 +78,7 @@ export function OnboardingForm() {
       : "superávit de 10% para hipertrofia";
 
     setIsCalculating(true);
+    setFoodEstimateError(null);
     setMacroPreview({ bmr, tdee, targetCalories, targetProtein, goalLabel, foodEstimate: null });
 
     try {
@@ -84,6 +86,9 @@ export function OnboardingForm() {
         meals.map((m) => ({ mealName: m.mealName, description: m.description }))
       );
       setMacroPreview((prev) => prev ? { ...prev, foodEstimate } : prev);
+    } catch (err) {
+      setFoodEstimateError("Não foi possível estimar os macros dos alimentos. Verifique a configuração do servidor.");
+      console.error("estimateDietMacros error:", err);
     } finally {
       setIsCalculating(false);
     }
@@ -432,6 +437,13 @@ export function OnboardingForm() {
             <div className="border-t border-white/5 pt-4">
               <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Estimativa dos seus alimentos</p>
               <p className="text-xs text-slate-600">Descreva o que costuma comer em cada refeição para ver os macros estimados.</p>
+            </div>
+          )}
+
+          {!isCalculating && foodEstimateError && (
+            <div className="border-t border-white/5 pt-4">
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Estimativa dos seus alimentos</p>
+              <p className="text-xs text-red-400">{foodEstimateError}</p>
             </div>
           )}
         </div>
