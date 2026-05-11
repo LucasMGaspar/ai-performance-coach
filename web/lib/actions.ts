@@ -255,6 +255,14 @@ const SUPPLEMENT_FOODS: (TacoEntry & { aliases: string[] })[] = [
   { id: 9016, description: "Pão francês", category: "Cereais", aliases: ["pão francês", "pao frances", "pão de sal", "francês"], energy_kcal: 267, protein_g: 8, lipid_g: 1.2, carbohydrate_g: 55, fiber_g: 2.3 },
   { id: 9017, description: "Granola tradicional", category: "Cereais", aliases: ["granola"], energy_kcal: 415, protein_g: 9.7, lipid_g: 5, carbohydrate_g: 67, fiber_g: 5 },
   { id: 9018, description: "Tapioca (goma hidratada)", category: "Cereais", aliases: ["tapioca", "goma de tapioca", "polvilho"], energy_kcal: 130, protein_g: 0.2, lipid_g: 0.3, carbohydrate_g: 32, fiber_g: 0.5 },
+  // ── Alimentos com entrada TACO nula ou match ambíguo ──────────────────────
+  // TACO tem "Leite de vaca integral" mas com kcal/carb null — valores verificados ABNT
+  { id: 9019, description: "Leite de vaca integral", category: "Laticínios", aliases: ["leite integral", "leite de vaca integral", "leite", "leite vaca"], energy_kcal: 61, protein_g: 3.2, lipid_g: 3.3, carbohydrate_g: 4.7, fiber_g: 0 },
+  { id: 9020, description: "Leite desnatado", category: "Laticínios", aliases: ["leite desnatado", "leite magro", "leite zero lactose"], energy_kcal: 35, protein_g: 3.4, lipid_g: 0.1, carbohydrate_g: 5.0, fiber_g: 0 },
+  // TACO tem 8 variedades de banana — usar prata/nanica (mais comuns em academia)
+  { id: 9021, description: "Banana (prata/nanica)", category: "Frutas", aliases: ["banana", "banana prata", "banana nanica", "banana comum"], energy_kcal: 95, protein_g: 1.3, lipid_g: 0.1, carbohydrate_g: 24.9, fiber_g: 2.0 },
+  // Ovo inteiro cozido (TACO: 145.7 kcal/100g, 1 ovo médio = 50g = 73 kcal)
+  { id: 9022, description: "Ovo de galinha inteiro cozido", category: "Ovos", aliases: ["ovo", "ovo cozido", "ovo inteiro", "ovo de galinha"], energy_kcal: 146, protein_g: 13.3, lipid_g: 9.9, carbohydrate_g: 0.6, fiber_g: 0 },
 ];
 
 function normalizeText(s: string): string {
@@ -265,10 +273,20 @@ function scoreMatch(tacoDesc: string, query: string): number {
   const tNorm = normalizeText(tacoDesc);
   const qNorm = normalizeText(query);
   if (tNorm === qNorm) return 100;
-  if (tNorm.includes(qNorm)) return 80;
-  const qWords = qNorm.split(" ").filter(w => w.length > 2);
-  const matches = qWords.filter(w => tNorm.includes(w));
-  return (matches.length / Math.max(qWords.length, 1)) * 60;
+
+  const tWords = tNorm.split(" ").filter(w => w.length > 0);
+  const qWords = qNorm.split(" ").filter(w => w.length > 0);
+
+  if (tNorm.includes(qNorm)) {
+    // Penalizar descrições com palavras extras além da query
+    // "Leite, integral" (2 palavras) >> "Canjica, com leite integral" (4 palavras)
+    const extraWords = tWords.length - qWords.length;
+    return Math.max(35, 80 - extraWords * 10);
+  }
+
+  const qSignificant = qWords.filter(w => w.length > 2);
+  const matches = qSignificant.filter(w => tNorm.includes(w));
+  return (matches.length / Math.max(qSignificant.length, 1)) * 60;
 }
 
 type ParsedIngredient = { food: string; quantity_g: number; state: string };
