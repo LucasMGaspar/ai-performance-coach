@@ -212,81 +212,251 @@ export type MealMacros = {
   fat: number;
 };
 
-const MACRO_AGENT_SYSTEM = `Você é um nutricionista esportivo com acesso à tabela TACO (Tabela Brasileira de Composição de Alimentos) e USDA FoodData Central.
+// ---------------------------------------------------------------------------
+// TACO dataset (597 alimentos UNICAMP 4ª ed.)
+// ---------------------------------------------------------------------------
 
-Sua tarefa é calcular os macros nutricionais de refeições com a maior precisão possível.
+type TacoEntry = {
+  id: number;
+  description: string;
+  category: string;
+  energy_kcal: number | null;
+  protein_g: number | null;
+  lipid_g: number | null;
+  carbohydrate_g: number | null;
+  fiber_g: number | null;
+};
 
-METODOLOGIA OBRIGATÓRIA — siga exatamente esta ordem:
-1. Identifique cada alimento e sua quantidade na refeição
-2. Para cada alimento, use os valores por 100g da tabela nutricional padrão
-3. Calcule proporcionalmente à quantidade informada
-4. Some todos os componentes para obter o total da refeição
+let _tacoData: TacoEntry[] | null = null;
+function getTacoData(): TacoEntry[] {
+  if (_tacoData) return _tacoData;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  _tacoData = require("../data/taco.json") as TacoEntry[];
+  return _tacoData;
+}
 
-VALORES DE REFERÊNCIA (por 100g, cozido/preparado):
-- Arroz branco cozido: 128 kcal, 2.5g prot, 28g carb, 0.2g gord
-- Feijão cozido: 77 kcal, 4.8g prot, 14g carb, 0.5g gord
-- Frango grelhado (peito): 165 kcal, 31g prot, 0g carb, 3.6g gord
-- Carne bovina (patinho grelhado): 219 kcal, 32g prot, 0g carb, 9.5g gord
-- Ovo inteiro cozido (1 unidade=50g): 78 kcal, 6g prot, 0.6g carb, 5.3g gord
-- Pão de forma (1 fatia=25g): 66 kcal, 2.4g prot, 12.4g carb, 0.9g gord
-- Banana média (100g): 89 kcal, 1.1g prot, 23g carb, 0.3g gord
-- Aveia (40g): 156 kcal, 5.4g prot, 27g carb, 2.8g gord
-- Leite integral (200ml): 122 kcal, 6.6g prot, 9.6g carb, 6.8g gord
-- Whey protein (1 scoop=30g): 120 kcal, 24g prot, 3g carb, 1.5g gord
-- Queijo mussarela (30g): 80 kcal, 6g prot, 1g carb, 6g gord
-- Pão francês (50g): 134 kcal, 4.3g prot, 27.6g carb, 0.6g gord
-- Bife de acém (100g): 219 kcal, 26g prot, 0g carb, 12g gord
-- Salada verde (50g): 12 kcal, 1g prot, 2g carb, 0g gord
+// Alimentos comuns de academia não presentes na TACO (valores por 100g verificados)
+const SUPPLEMENT_FOODS: (TacoEntry & { aliases: string[] })[] = [
+  { id: 9001, description: "Whey protein concentrado (WPC 80%)", category: "Suplementos", aliases: ["whey", "whey protein", "whey concentrado", "proteína whey"], energy_kcal: 390, protein_g: 80, lipid_g: 4, carbohydrate_g: 8, fiber_g: 0 },
+  { id: 9002, description: "Whey protein isolado (WPI 90%)", category: "Suplementos", aliases: ["whey isolado", "whey isolate", "wpi"], energy_kcal: 370, protein_g: 90, lipid_g: 1, carbohydrate_g: 2, fiber_g: 0 },
+  { id: 9003, description: "Caseína micelar", category: "Suplementos", aliases: ["caseína", "casein", "caseina"], energy_kcal: 357, protein_g: 73, lipid_g: 1, carbohydrate_g: 14, fiber_g: 0 },
+  { id: 9004, description: "Proteína vegetal de soja isolada", category: "Suplementos", aliases: ["proteína de soja", "soy protein", "proteína vegetal", "proteína em pó", "protein powder"], energy_kcal: 360, protein_g: 91, lipid_g: 0.5, carbohydrate_g: 3, fiber_g: 0 },
+  { id: 9005, description: "BCAA (2:1:1)", category: "Suplementos", aliases: ["bcaa", "aminoácidos", "amino"], energy_kcal: 350, protein_g: 88, lipid_g: 0, carbohydrate_g: 0, fiber_g: 0 },
+  { id: 9006, description: "Creatina monohidratada", category: "Suplementos", aliases: ["creatina", "creatine"], energy_kcal: 0, protein_g: 0, lipid_g: 0, carbohydrate_g: 0, fiber_g: 0 },
+  { id: 9007, description: "Maltodextrina", category: "Suplementos", aliases: ["maltodextrina", "malto"], energy_kcal: 380, protein_g: 0, lipid_g: 0, carbohydrate_g: 95, fiber_g: 0 },
+  { id: 9008, description: "Dextrose", category: "Suplementos", aliases: ["dextrose", "glicose em pó"], energy_kcal: 380, protein_g: 0, lipid_g: 0, carbohydrate_g: 95, fiber_g: 0 },
+  { id: 9009, description: "Azeite de oliva", category: "Gorduras", aliases: ["azeite", "azeite oliva", "azeite de oliva", "olive oil"], energy_kcal: 884, protein_g: 0, lipid_g: 100, carbohydrate_g: 0, fiber_g: 0 },
+  { id: 9010, description: "Óleo de coco", category: "Gorduras", aliases: ["óleo de coco", "oleo de coco", "coconut oil"], energy_kcal: 896, protein_g: 0, lipid_g: 99, carbohydrate_g: 0, fiber_g: 0 },
+  { id: 9011, description: "Pasta de amendoim integral", category: "Gorduras", aliases: ["pasta de amendoim", "manteiga de amendoim", "peanut butter"], energy_kcal: 580, protein_g: 25, lipid_g: 50, carbohydrate_g: 9, fiber_g: 6 },
+  { id: 9012, description: "Cottage cheese", category: "Laticínios", aliases: ["cottage", "queijo cottage"], energy_kcal: 98, protein_g: 11, lipid_g: 4.3, carbohydrate_g: 3.4, fiber_g: 0 },
+  { id: 9013, description: "Iogurte grego integral", category: "Laticínios", aliases: ["iogurte grego", "yogurt grego"], energy_kcal: 129, protein_g: 10, lipid_g: 7, carbohydrate_g: 3.5, fiber_g: 0 },
+  { id: 9014, description: "Queijo mussarela", category: "Laticínios", aliases: ["mussarela", "muçarela", "queijo mussarela", "mozzarella"], energy_kcal: 264, protein_g: 20, lipid_g: 20, carbohydrate_g: 2, fiber_g: 0 },
+  { id: 9015, description: "Cream cheese", category: "Laticínios", aliases: ["cream cheese", "queijo cremoso"], energy_kcal: 342, protein_g: 5.9, lipid_g: 34, carbohydrate_g: 4.3, fiber_g: 0 },
+  { id: 9016, description: "Pão francês", category: "Cereais", aliases: ["pão francês", "pao frances", "pão de sal", "francês"], energy_kcal: 267, protein_g: 8, lipid_g: 1.2, carbohydrate_g: 55, fiber_g: 2.3 },
+  { id: 9017, description: "Granola tradicional", category: "Cereais", aliases: ["granola"], energy_kcal: 415, protein_g: 9.7, lipid_g: 5, carbohydrate_g: 67, fiber_g: 5 },
+  { id: 9018, description: "Tapioca (goma hidratada)", category: "Cereais", aliases: ["tapioca", "goma de tapioca", "polvilho"], energy_kcal: 130, protein_g: 0.2, lipid_g: 0.3, carbohydrate_g: 32, fiber_g: 0.5 },
+];
+
+function normalizeText(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function scoreMatch(tacoDesc: string, query: string): number {
+  const tNorm = normalizeText(tacoDesc);
+  const qNorm = normalizeText(query);
+  if (tNorm === qNorm) return 100;
+  if (tNorm.includes(qNorm)) return 80;
+  const qWords = qNorm.split(" ").filter(w => w.length > 2);
+  const matches = qWords.filter(w => tNorm.includes(w));
+  return (matches.length / Math.max(qWords.length, 1)) * 60;
+}
+
+type ParsedIngredient = { food: string; quantity_g: number; state: string };
+
+function lookupTaco(ingredient: ParsedIngredient): TacoEntry | null {
+  const query = ingredient.food;
+  const state = normalizeText(ingredient.state ?? "");
+
+  // Suplementos por alias exato primeiro
+  for (const s of SUPPLEMENT_FOODS) {
+    if (s.aliases.some(a => normalizeText(a) === normalizeText(query))) return s;
+    if (s.aliases.some(a => normalizeText(query).includes(normalizeText(a)))) return s;
+  }
+
+  let best: TacoEntry | null = null;
+  let bestScore = 0;
+
+  for (const entry of getTacoData()) {
+    let score = scoreMatch(entry.description, query);
+    if (score < 20) continue;
+
+    const entryNorm = normalizeText(entry.description);
+    const isCozido = entryNorm.includes("cozido") || entryNorm.includes("grelhado") || entryNorm.includes("assado") || entryNorm.includes("frito");
+    const isCru = entryNorm.includes("cru") || entryNorm.includes("crua");
+
+    if (state.includes("cozido") || state.includes("grelhado") || state.includes("assado")) {
+      if (isCozido) score += 15;
+      if (isCru) score -= 10;
+    } else if (state.includes("cru")) {
+      if (isCru) score += 15;
+      if (isCozido) score -= 10;
+    } else {
+      if (isCozido) score += 5;
+    }
+
+    if (score > bestScore) { bestScore = score; best = entry; }
+  }
+
+  return bestScore >= 25 ? best : null;
+}
+
+// ---------------------------------------------------------------------------
+// USDA FoodData Central API
+// ---------------------------------------------------------------------------
+
+async function lookupUSDA(foodName: string): Promise<{ energy_kcal: number; protein_g: number; lipid_g: number; carbohydrate_g: number } | null> {
+  const apiKey = process.env.USDA_API_KEY ?? "DEMO_KEY";
+  const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(foodName)}&api_key=${apiKey}&dataType=Foundation,SR%20Legacy,Survey%20(FNDDS)&pageSize=3`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const data = await res.json() as { foods?: { foodNutrients: { nutrientId: number; value: number }[] }[] };
+    if (!data.foods?.length) return null;
+    const nutrients = data.foods[0].foodNutrients;
+    const get = (id: number) => nutrients.find(n => n.nutrientId === id)?.value ?? 0;
+    const result = { energy_kcal: get(1008), protein_g: get(1003), lipid_g: get(1004), carbohydrate_g: get(1005) };
+    if (result.energy_kcal === 0 && result.protein_g === 0 && result.carbohydrate_g === 0) return null;
+    return result;
+  } catch { return null; }
+}
+
+// ---------------------------------------------------------------------------
+// Parse prompt (Sonnet — preciso e sem duplicatas)
+// ---------------------------------------------------------------------------
+
+const PARSE_SYSTEM = `Você é um analisador de refeições. Converta descrições de refeições em JSON estruturado.
 
 REGRAS:
-- Quando a quantidade não for especificada, use porção padrão brasileira
-- Método de preparo padrão: grelhado para carnes, cozido para grãos
-- Arredonde para inteiros
-- Responda APENAS com JSON válido, sem markdown, sem explicações`;
+- Liste CADA alimento UMA ÚNICA VEZ — nunca duplique um ingrediente com nomes diferentes
+- Converta todas as unidades para gramas: colher de sopa de óleo = 10g, xícara de arroz cozido = 200g, copo de leite = 200g, 1 ovo médio = 50g
+- Estado padrão: carnes → "grelhado", grãos/leguminosas → "cozido", frutas/vegetais → "cru", óleos → "natural"
+- Use porção padrão brasileira quando quantidade não informada
+- Responda SOMENTE JSON válido sem markdown
+
+Formato: {"meals":[{"mealName":"...","ingredients":[{"food":"nome canônico do alimento","quantity_g":100,"state":"cozido"}]}]}`;
+
+// ---------------------------------------------------------------------------
+// Main export
+// ---------------------------------------------------------------------------
 
 export async function calculateMealMacros(
   meals: { mealName: string; description: string }[]
 ): Promise<{ meals: MealMacros[]; total: MealMacros }> {
   const withDescription = meals.filter((m) => m.description.trim());
   const empty: MealMacros = { mealName: "Total", calories: 0, protein: 0, carbs: 0, fat: 0 };
-
-  if (withDescription.length === 0) {
-    return { meals: [], total: empty };
-  }
+  if (withDescription.length === 0) return { meals: [], total: empty };
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const list = withDescription.map((m) => `- ${m.mealName}: ${m.description}`).join("\n");
 
+  // Step 1: Sonnet parseia ingredientes (sem duplicatas)
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    system: MACRO_AGENT_SYSTEM,
-    messages: [
-      {
-        role: "user",
-        content: `Calcule os macros de cada refeição abaixo:\n\n${list}\n\nFormato de resposta:\n{"meals":[{"mealName":"...","calories":0,"protein":0,"carbs":0,"fat":0}]}`,
-      },
-    ],
+    max_tokens: 2048,
+    system: PARSE_SYSTEM,
+    messages: [{ role: "user", content: `Analise estas refeições:\n\n${list}` }],
   });
 
   const raw = response.content[0].type === "text" ? response.content[0].text.trim() : "{}";
-  // Extrair JSON mesmo que venha dentro de bloco markdown ```json ... ```
   const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? raw.match(/(\{[\s\S]*\})/);
   const jsonText = jsonMatch ? jsonMatch[1].trim() : raw;
-  const parsed = JSON.parse(jsonText) as { meals: MealMacros[] };
 
-  const total = parsed.meals.reduce(
-    (acc, m) => ({
-      mealName: "Total",
-      calories: acc.calories + m.calories,
-      protein: acc.protein + m.protein,
-      carbs: acc.carbs + m.carbs,
-      fat: acc.fat + m.fat,
-    }),
+  type ParsedMeal = { mealName: string; ingredients: ParsedIngredient[] };
+  const parsed = JSON.parse(jsonText) as { meals: ParsedMeal[] };
+
+  // Step 2: Deduplicar ingredientes (mesma raiz de nome → somar quantities, manter um)
+  for (const meal of parsed.meals) {
+    const seen = new Map<string, ParsedIngredient>();
+    for (const ing of meal.ingredients) {
+      const key = normalizeText(ing.food).split(" ").slice(0, 2).join(" ");
+      if (seen.has(key)) {
+        seen.get(key)!.quantity_g += ing.quantity_g;
+      } else {
+        seen.set(key, { ...ing });
+      }
+    }
+    meal.ingredients = Array.from(seen.values());
+  }
+
+  // Step 3: Lookup TACO + cálculo determinístico
+  const resultMeals: MealMacros[] = [];
+  const unknownIngredients: { mealName: string; food: string; quantity_g: number }[] = [];
+
+  for (const meal of parsed.meals) {
+    let cal = 0, prot = 0, carbs = 0, fat = 0;
+    for (const ing of meal.ingredients) {
+      const entry = lookupTaco(ing);
+      if (entry) {
+        const f = ing.quantity_g / 100;
+        cal   += (entry.energy_kcal    ?? 0) * f;
+        prot  += (entry.protein_g      ?? 0) * f;
+        carbs += (entry.carbohydrate_g ?? 0) * f;
+        fat   += (entry.lipid_g        ?? 0) * f;
+      } else {
+        unknownIngredients.push({ mealName: meal.mealName, food: ing.food, quantity_g: ing.quantity_g });
+      }
+    }
+    resultMeals.push({ mealName: meal.mealName, calories: Math.round(cal), protein: Math.round(prot), carbs: Math.round(carbs), fat: Math.round(fat) });
+  }
+
+  // Step 4: USDA para o que TACO não encontrou
+  if (unknownIngredients.length > 0) {
+    const stillUnknown: typeof unknownIngredients = [];
+    await Promise.all(unknownIngredients.map(async (u) => {
+      const idx = resultMeals.findIndex(m => m.mealName === u.mealName);
+      if (idx === -1) return;
+      const usda = await lookupUSDA(u.food);
+      if (usda) {
+        const f = u.quantity_g / 100;
+        resultMeals[idx].calories += Math.round((usda.energy_kcal    ?? 0) * f);
+        resultMeals[idx].protein  += Math.round((usda.protein_g      ?? 0) * f);
+        resultMeals[idx].carbs    += Math.round((usda.carbohydrate_g ?? 0) * f);
+        resultMeals[idx].fat      += Math.round((usda.lipid_g        ?? 0) * f);
+      } else {
+        stillUnknown.push(u);
+      }
+    }));
+
+    // Step 5: LLM estimativa só para o que nem TACO nem USDA encontraram
+    if (stillUnknown.length > 0) {
+      const fb = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 512,
+        system: `Estime macros por porção informada. SOMENTE JSON: {"items":[{"food":"...","calories":0,"protein":0,"carbs":0,"fat":0}]}`,
+        messages: [{ role: "user", content: stillUnknown.map(u => `- ${u.food}: ${u.quantity_g}g`).join("\n") }],
+      });
+      const fbRaw = fb.content[0].type === "text" ? fb.content[0].text.trim() : "{}";
+      const fbMatch = fbRaw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? fbRaw.match(/(\{[\s\S]*\})/);
+      const fbParsed = JSON.parse(fbMatch ? fbMatch[1].trim() : fbRaw) as { items: { food: string; calories: number; protein: number; carbs: number; fat: number }[] };
+      for (const item of fbParsed.items) {
+        const mealName = stillUnknown.find(u => normalizeText(u.food) === normalizeText(item.food))?.mealName;
+        if (!mealName) continue;
+        const idx = resultMeals.findIndex(m => m.mealName === mealName);
+        if (idx === -1) continue;
+        resultMeals[idx].calories += item.calories;
+        resultMeals[idx].protein  += item.protein;
+        resultMeals[idx].carbs    += item.carbs;
+        resultMeals[idx].fat      += item.fat;
+      }
+    }
+  }
+
+  const total = resultMeals.reduce(
+    (acc, m) => ({ mealName: "Total", calories: acc.calories + m.calories, protein: acc.protein + m.protein, carbs: acc.carbs + m.carbs, fat: acc.fat + m.fat }),
     empty
   );
 
-  return { meals: parsed.meals, total };
+  return { meals: resultMeals, total };
 }
 
 export async function updateScheduledMeal(
