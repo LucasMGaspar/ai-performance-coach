@@ -2,10 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { submitOnboarding, estimateDietMacros, type MealInput } from "@/lib/actions";
+import { submitOnboarding, calculateMealMacros, type MealInput, type MealMacros } from "@/lib/actions";
 import { Plus, Trash2, Calculator, X } from "lucide-react";
-
-type MealEstimate = { mealName: string; calories: number; protein: number; carbs: number; fat: number };
 
 type MacroPreview = {
   bmr: number;
@@ -13,7 +11,7 @@ type MacroPreview = {
   targetCalories: number;
   targetProtein: number;
   goalLabel: string;
-  foodEstimate: { meals: MealEstimate[]; total: MealEstimate } | null;
+  foodEstimate: { meals: MealMacros[]; total: MealMacros } | null;
 };
 
 const DEFAULT_MEALS: MealInput[] = [
@@ -82,13 +80,23 @@ export function OnboardingForm() {
     setMacroPreview({ bmr, tdee, targetCalories, targetProtein, goalLabel, foodEstimate: null });
 
     try {
-      const foodEstimate = await estimateDietMacros(
+      const foodEstimate = await calculateMealMacros(
         meals.map((m) => ({ mealName: m.mealName, description: m.description }))
       );
+      // Guardar macros calculados nas refeições para usar no submit
+      if (foodEstimate.meals.length > 0) {
+        setMeals((prev) => prev.map((meal) => {
+          const est = foodEstimate.meals.find(
+            (e) => e.mealName.toLowerCase().includes(meal.mealName.toLowerCase()) ||
+                   meal.mealName.toLowerCase().includes(e.mealName.toLowerCase())
+          );
+          return est ? { ...meal, targetCalories: est.calories, targetProtein: est.protein, targetCarbs: est.carbs, targetFat: est.fat } : meal;
+        }));
+      }
       setMacroPreview((prev) => prev ? { ...prev, foodEstimate } : prev);
     } catch (err) {
-      setFoodEstimateError("Não foi possível estimar os macros dos alimentos. Verifique a configuração do servidor.");
-      console.error("estimateDietMacros error:", err);
+      setFoodEstimateError("Não foi possível calcular os macros. Verifique a configuração do servidor.");
+      console.error("calculateMealMacros error:", err);
     } finally {
       setIsCalculating(false);
     }
