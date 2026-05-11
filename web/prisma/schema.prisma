@@ -29,6 +29,7 @@ model User {
   tdee            Float?
   targetCalories  Float?
   targetProtein   Float?
+  consistencyScore Int      @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -131,6 +132,8 @@ model DailyCheckIn {
   sleepQuality Int
   energyLevel  Int
   notes        String?
+  waterLiters  Float    @default(0)
+  supplements  String[] @default([])
 
   user User @relation(fields: [userId], references: [id])
 
