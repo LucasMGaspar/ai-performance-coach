@@ -36,6 +36,8 @@ export class ProgressionService {
       // Lógica de PR: maior peso. Se pesos iguais, mais repetições.
       const isNewPR = !existingPR || weightKg > existingPR.weightKg || (weightKg === existingPR.weightKg && reps > existingPR.reps);
 
+      const e1rmKg = +(weightKg * (1 + reps / 30)).toFixed(1);
+
       if (isNewPR) {
         // @ts-ignore
         await prisma.exercisePR.upsert({
@@ -45,6 +47,7 @@ export class ProgressionService {
           update: {
             weightKg,
             reps,
+            e1rmKg,
             date: new Date(),
           },
           create: {
@@ -52,6 +55,7 @@ export class ProgressionService {
             exerciseId,
             weightKg,
             reps,
+            e1rmKg,
             date: new Date(),
           },
         });
