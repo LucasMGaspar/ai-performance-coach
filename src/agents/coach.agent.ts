@@ -96,12 +96,13 @@ class CoachAgent {
   private async executeTool(
     userId: string,
     toolName: string,
-    input: Record<string, unknown>
+    input: Record<string, unknown>,
+    ctx: { analysisStartedAt: Date }
   ): Promise<unknown> {
     switch (toolName) {
       case "get_exercise_history": {
         const { exerciseId, n } = input as { exerciseId: string; n: number };
-        return ragService.getLastNWorkouts(userId, exerciseId, Math.min(n, 10));
+        return ragService.getLastNWorkouts(userId, exerciseId, Math.min(n, 10), ctx.analysisStartedAt);
       }
       case "get_diet_summary": {
         const { days } = input as { days: number };
@@ -117,7 +118,7 @@ class CoachAgent {
       }
       case "detect_plateau": {
         const { exerciseId } = input as { exerciseId: string };
-        const logs = await ragService.getLastNWorkouts(userId, exerciseId, 5);
+        const logs = await ragService.getLastNWorkouts(userId, exerciseId, 5, ctx.analysisStartedAt);
         if (logs.length < 3) return { plateau: false, reason: "insufficient_history" };
         const last3 = logs.slice(0, 3);
         const noWeightProgress = last3.every((l) => l.weightKg <= last3[last3.length - 1].weightKg);
@@ -142,6 +143,8 @@ class CoachAgent {
     currentLog: WorkoutLogData
   ): Promise<string> {
     const userMessage = `Treino registado: ${currentLog.exerciseName}, ${currentLog.weightKg}kg × ${currentLog.reps} reps × ${currentLog.sets} séries${currentLog.rpe != null ? `, RPE ${currentLog.rpe}` : ""}. Volume total: ${currentLog.volume}kg. exerciseId=${currentLog.exerciseId}`;
+
+    const analysisStartedAt = new Date();
 
     const messages: Anthropic.MessageParam[] = [
       { role: "user", content: userMessage },
@@ -168,7 +171,7 @@ class CoachAgent {
 
           for (const block of response.content) {
             if (block.type !== "tool_use") continue;
-            const result = await this.executeTool(userId, block.name, block.input as Record<string, unknown>);
+            const result = await this.executeTool(userId, block.name, block.input as Record<string, unknown>, { analysisStartedAt });
             toolResults.push({
               type: "tool_result",
               tool_use_id: block.id,

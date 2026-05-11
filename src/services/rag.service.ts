@@ -138,10 +138,15 @@ class RagService {
   async getLastNWorkouts(
     userId: string,
     exerciseId: string,
-    n: number
+    n: number,
+    beforeDate?: Date
   ): Promise<WorkoutLog[]> {
     const logs = await prisma.workoutLog.findMany({
-      where: { userId, exerciseId },
+      where: {
+        userId,
+        exerciseId,
+        ...(beforeDate ? { date: { lt: beforeDate } } : {}),
+      },
       orderBy: { date: "desc" },
       take: n,
       select: {
