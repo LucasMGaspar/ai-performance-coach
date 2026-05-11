@@ -245,8 +245,11 @@ export async function calculateMealMacros(
     ],
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text.trim() : "{}";
-  const parsed = JSON.parse(text) as { meals: MealMacros[] };
+  const raw = response.content[0].type === "text" ? response.content[0].text.trim() : "{}";
+  // Extrair JSON mesmo que venha dentro de bloco markdown ```json ... ```
+  const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? raw.match(/(\{[\s\S]*\})/);
+  const jsonText = jsonMatch ? jsonMatch[1].trim() : raw;
+  const parsed = JSON.parse(jsonText) as { meals: MealMacros[] };
 
   const total = parsed.meals.reduce(
     (acc, m) => ({
