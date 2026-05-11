@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { submitOnboarding, type MealInput } from "@/lib/actions";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Sparkles } from "lucide-react";
 
 const DEFAULT_MEALS: MealInput[] = [
   { mealName: "Café da manhã", scheduledTime: "08:00", description: "", targetCalories: 0, targetProtein: 0 },
@@ -55,6 +55,31 @@ export function OnboardingForm() {
     const updated = [...meals];
     updated[i] = { ...updated[i], [field]: value };
     setMeals(updated);
+  };
+
+  const canGenerateMacros =
+    !!profile.weightKg && !!profile.heightCm && !!profile.age;
+
+  const generateMacros = () => {
+    const w = Number(profile.weightKg);
+    const h = Number(profile.heightCm);
+    const a = Number(profile.age);
+    const bmr =
+      profile.sex === "masculino"
+        ? 10 * w + 6.25 * h - 5 * a + 5
+        : 10 * w + 6.25 * h - 5 * a - 161;
+    const tdee = Math.round(bmr * 1.55);
+    const goalLower = profile.goal.toLowerCase();
+    const totalCalories =
+      goalLower.includes("emagrec")
+        ? Math.round(tdee * 0.85)
+        : goalLower.includes("força") || goalLower.includes("manter")
+        ? tdee
+        : Math.round(tdee * 1.1);
+    const totalProtein = Math.round(w * 2.2);
+    const perMealCalories = Math.round(totalCalories / meals.length);
+    const perMealProtein = Math.round(totalProtein / meals.length);
+    setMeals(meals.map((meal) => ({ ...meal, targetCalories: perMealCalories, targetProtein: perMealProtein })));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -223,9 +248,21 @@ export function OnboardingForm() {
       {/* Secção 3: Dieta */}
       <div className="space-y-4">
         <p className={sectionTitleClass}>Refeições Diárias</p>
-        <p className="text-xs text-slate-600">
-          Adicione as suas refeições habituais com os valores alvo de macros.
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-slate-600">
+            Adicione as suas refeições habituais com os valores alvo de macros.
+          </p>
+          <button
+            type="button"
+            onClick={generateMacros}
+            disabled={!canGenerateMacros}
+            title={!canGenerateMacros ? "Preencha peso, altura e idade primeiro" : "Distribuir macros automaticamente pelas refeições"}
+            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-30 disabled:cursor-not-allowed border-orange-500/40 text-orange-400 bg-orange-500/10 hover:bg-orange-500/20"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Sugerir macros
+          </button>
+        </div>
 
         {meals.map((meal, i) => (
           <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
