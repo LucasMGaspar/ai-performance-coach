@@ -10,6 +10,45 @@ import {
 } from "../schemas/extraction.schema";
 
 // ---------------------------------------------------------------------------
+// Funções de módulo exportadas (testáveis de forma isolada)
+// ---------------------------------------------------------------------------
+
+export function applyWeightPerSideRule(
+  result: ExtractionResult,
+  catalog: { name: string; aliases: string[]; barWeightKg: number | null }[]
+): ExtractionResult {
+  if (result.type !== "workout") return result;
+
+  const exercises = result.exercises.map((exercise) => {
+    if (exercise.weightPerSide == null) return exercise;
+
+    const weightPerSide = exercise.weightPerSide;
+    const nameLower = exercise.exerciseName.toLowerCase();
+
+    const catalogEntry = catalog.find((entry) => {
+      const entryNameLower = entry.name.toLowerCase();
+      if (entryNameLower.includes(nameLower) || nameLower.includes(entryNameLower)) {
+        return true;
+      }
+      return entry.aliases.some((alias) => {
+        const aliasLower = alias.toLowerCase();
+        return aliasLower.includes(nameLower) || nameLower.includes(aliasLower);
+      });
+    });
+
+    const totalWeight =
+      catalogEntry?.barWeightKg != null
+        ? weightPerSide * 2 + catalogEntry.barWeightKg
+        : weightPerSide * 2;
+
+    const { weightPerSide: _removed, ...rest } = exercise;
+    return { ...rest, totalWeight };
+  });
+
+  return { ...result, exercises };
+}
+
+// ---------------------------------------------------------------------------
 // Constantes
 // ---------------------------------------------------------------------------
 
@@ -145,42 +184,7 @@ export class ParserAgent {
     result: ExtractionResult,
     catalog: ExerciseCatalog[]
   ): ExtractionResult {
-    if (result.type !== "workout") return result;
-
-    const exercises = result.exercises.map((exercise) => {
-      if (exercise.weightPerSide == null) return exercise;
-
-      const weightPerSide = exercise.weightPerSide;
-      const nameLower = exercise.exerciseName.toLowerCase();
-
-      // Encontrar no catálogo por nome canónico ou aliases (lowercase includes)
-      const catalogEntry = catalog.find((entry) => {
-        const entryNameLower = entry.name.toLowerCase();
-        if (entryNameLower.includes(nameLower) || nameLower.includes(entryNameLower)) {
-          return true;
-        }
-        // Verificar aliases
-        return entry.aliases.some((alias) => {
-          const aliasLower = alias.toLowerCase();
-          return aliasLower.includes(nameLower) || nameLower.includes(aliasLower);
-        });
-      });
-
-      let totalWeight: number;
-      if (catalogEntry?.barWeightKg != null) {
-        // Encontrado com barra: peso total = (pesoLado * 2) + pesoBarra
-        totalWeight = weightPerSide * 2 + catalogEntry.barWeightKg;
-      } else {
-        // Não encontrado ou sem barra: totalWeight = pesoLado * 2
-        totalWeight = weightPerSide * 2;
-      }
-
-      // Remover weightPerSide (campo interno) e definir totalWeight calculado
-      const { weightPerSide: _removed, ...rest } = exercise;
-      return { ...rest, totalWeight };
-    });
-
-    return { ...result, exercises };
+    return applyWeightPerSideRule(result, catalog);
   }
 
   // -------------------------------------------------------------------------
