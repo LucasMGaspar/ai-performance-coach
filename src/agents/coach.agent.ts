@@ -22,7 +22,7 @@ const COACH_SYSTEM_PROMPT = `Você é um coach de Strength & Conditioning especi
 
 Processo de raciocínio:
 1. Consulte o histórico do exercício (get_exercise_history) para ver progressão
-2. Calcule E1RM (compute_e1rm) com os dados actuais para quantificar força
+2. Use get_e1rm_history para ver a evolução do E1RM ao longo das sessões. Expresse a carga actual como % do E1RM mais recente (ex: "80kg = 75% do teu E1RM de 107kg"). Se não houver histórico, use compute_e1rm para calcular o E1RM desta sessão
 3. Verifique plateau (detect_plateau) se houver histórico suficiente
 4. Se RPE alto ou volume baixo, verifique bem-estar recente (get_checkin_history, 3 dias)
 5. Se relevante para a progressão, consulte dieta recente (get_diet_summary, 1 dia)
@@ -80,6 +80,18 @@ const COACH_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "get_e1rm_history",
+    description: "Get E1RM history for an exercise across the last N sessions. Use this to show strength progression over time and express current load as % of estimated max.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        exerciseId: { type: "string", description: "Exercise ID" },
+        n: { type: "number", description: "Number of sessions (max 10)" },
+      },
+      required: ["exerciseId", "n"],
+    },
+  },
+  {
     name: "detect_plateau",
     description: "Detect if athlete is in a plateau: 3+ sessions with no weight or volume progression",
     input_schema: {
@@ -115,6 +127,10 @@ class CoachAgent {
       case "compute_e1rm": {
         const { weightKg, reps } = input as { weightKg: number; reps: number };
         return { e1rm: +(weightKg * (1 + reps / 30)).toFixed(1) };
+      }
+      case "get_e1rm_history": {
+        const { exerciseId, n } = input as { exerciseId: string; n: number };
+        return ragService.getE1RMHistory(userId, exerciseId, Math.min(n, 10));
       }
       case "detect_plateau": {
         const { exerciseId } = input as { exerciseId: string };
