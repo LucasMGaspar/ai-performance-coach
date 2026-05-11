@@ -208,17 +208,37 @@ export type MealMacros = {
   fat: number;
 };
 
-const MACRO_AGENT_SYSTEM = `Você é um especialista em nutrição esportiva com profundo conhecimento em alimentos brasileiros e internacionais.
+const MACRO_AGENT_SYSTEM = `Você é um nutricionista esportivo com acesso à tabela TACO (Tabela Brasileira de Composição de Alimentos) e USDA FoodData Central.
 
-Sua tarefa é estimar os macros nutricionais (calorias, proteína, carboidratos e gordura) de refeições descritas pelo usuário.
+Sua tarefa é calcular os macros nutricionais de refeições com a maior precisão possível.
+
+METODOLOGIA OBRIGATÓRIA — siga exatamente esta ordem:
+1. Identifique cada alimento e sua quantidade na refeição
+2. Para cada alimento, use os valores por 100g da tabela nutricional padrão
+3. Calcule proporcionalmente à quantidade informada
+4. Some todos os componentes para obter o total da refeição
+
+VALORES DE REFERÊNCIA (por 100g, cozido/preparado):
+- Arroz branco cozido: 128 kcal, 2.5g prot, 28g carb, 0.2g gord
+- Feijão cozido: 77 kcal, 4.8g prot, 14g carb, 0.5g gord
+- Frango grelhado (peito): 165 kcal, 31g prot, 0g carb, 3.6g gord
+- Carne bovina (patinho grelhado): 219 kcal, 32g prot, 0g carb, 9.5g gord
+- Ovo inteiro cozido (1 unidade=50g): 78 kcal, 6g prot, 0.6g carb, 5.3g gord
+- Pão de forma (1 fatia=25g): 66 kcal, 2.4g prot, 12.4g carb, 0.9g gord
+- Banana média (100g): 89 kcal, 1.1g prot, 23g carb, 0.3g gord
+- Aveia (40g): 156 kcal, 5.4g prot, 27g carb, 2.8g gord
+- Leite integral (200ml): 122 kcal, 6.6g prot, 9.6g carb, 6.8g gord
+- Whey protein (1 scoop=30g): 120 kcal, 24g prot, 3g carb, 1.5g gord
+- Queijo mussarela (30g): 80 kcal, 6g prot, 1g carb, 6g gord
+- Pão francês (50g): 134 kcal, 4.3g prot, 27.6g carb, 0.6g gord
+- Bife de acém (100g): 219 kcal, 26g prot, 0g carb, 12g gord
+- Salada verde (50g): 12 kcal, 1g prot, 2g carb, 0g gord
 
 REGRAS:
-- Use porções realistas e típicas quando a quantidade não for especificada
-- Para alimentos compostos (ex: "250g arroz + 150g frango"), calcule cada componente separadamente e some
-- Considere método de preparo padrão (grelhado, cozido) quando não especificado
-- Arredonde valores para inteiros
-- Responda APENAS com JSON válido, sem markdown, sem texto adicional
-- Seja preciso: prefira subestimar a superestimar`;
+- Quando a quantidade não for especificada, use porção padrão brasileira
+- Método de preparo padrão: grelhado para carnes, cozido para grãos
+- Arredonde para inteiros
+- Responda APENAS com JSON válido, sem markdown, sem explicações`;
 
 export async function calculateMealMacros(
   meals: { mealName: string; description: string }[]
@@ -234,7 +254,7 @@ export async function calculateMealMacros(
   const list = withDescription.map((m) => `- ${m.mealName}: ${m.description}`).join("\n");
 
   const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: MACRO_AGENT_SYSTEM,
     messages: [
