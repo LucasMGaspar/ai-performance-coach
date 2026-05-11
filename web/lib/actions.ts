@@ -406,6 +406,53 @@ function lookupTaco(ingredient: ParsedIngredient): TacoEntry | null {
 }
 
 // ---------------------------------------------------------------------------
+// USDA FoodData Central API lookup
+// ---------------------------------------------------------------------------
+
+type UsdaMacros = {
+  energy_kcal: number;
+  protein_g: number;
+  lipid_g: number;
+  carbohydrate_g: number;
+  fiber_g: number;
+};
+
+async function lookupUSDA(foodName: string): Promise<UsdaMacros | null> {
+  const apiKey = process.env.USDA_API_KEY ?? "DEMO_KEY";
+  const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(foodName)}&api_key=${apiKey}&dataType=Foundation,SR%20Legacy,Survey%20(FNDDS)&pageSize=3`;
+
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+
+    const data = await res.json() as {
+      foods?: { foodNutrients: { nutrientId: number; value: number }[] }[];
+    };
+    if (!data.foods?.length) return null;
+
+    const nutrients = data.foods[0].foodNutrients;
+    const get = (id: number) => {
+      const n = nutrients.find(n => n.nutrientId === id);
+      return n ? Math.round(n.value * 10) / 10 : 0;
+    };
+
+    const result: UsdaMacros = {
+      energy_kcal:    get(1008),
+      protein_g:      get(1003),
+      lipid_g:        get(1004),
+      carbohydrate_g: get(1005),
+      fiber_g:        get(1079),
+    };
+
+    // Sanity check: reject if all macros are zero
+    if (result.energy_kcal === 0 && result.protein_g === 0 && result.carbohydrate_g === 0) return null;
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // LLM parse-only prompt
 // ---------------------------------------------------------------------------
 
@@ -479,34 +526,56 @@ export async function calculateMealMacros(
     });
   }
 
-  // Step 3: LLM fallback only for unmatched ingredients
+  // Step 3: USDA lookup → LLM fallback (only for what USDA also doesn't find)
   if (unknownIngredients.length > 0) {
-    const fallbackList = unknownIngredients
-      .map(u => `- ${u.food}: ${u.quantity_g}g`)
-      .join("\n");
+    const stillUnknown: typeof unknownIngredients = [];
 
-    const fbResponse = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      system: `Estime os macros APENAS destes alimentos não encontrados em tabela nutricional. Responda SOMENTE JSON válido:
+    await Promise.all(
+      unknownIngredients.map(async (u) => {
+        const usdaResult = await lookupUSDA(u.food);
+        const idx = resultMeals.findIndex(m => m.mealName === u.mealName);
+        if (idx === -1) return;
+
+        if (usdaResult) {
+          const factor = u.quantity_g / 100;
+          resultMeals[idx].calories += Math.round((usdaResult.energy_kcal    ?? 0) * factor);
+          resultMeals[idx].protein  += Math.round((usdaResult.protein_g      ?? 0) * factor);
+          resultMeals[idx].carbs    += Math.round((usdaResult.carbohydrate_g ?? 0) * factor);
+          resultMeals[idx].fat      += Math.round((usdaResult.lipid_g        ?? 0) * factor);
+        } else {
+          stillUnknown.push(u);
+        }
+      })
+    );
+
+    // Last resort: LLM estimation for anything not found in TACO or USDA
+    if (stillUnknown.length > 0) {
+      const fallbackList = stillUnknown.map(u => `- ${u.food}: ${u.quantity_g}g`).join("\n");
+
+      const fbResponse = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 512,
+        system: `Estime os macros destes alimentos não encontrados em nenhuma base nutricional. Responda SOMENTE JSON válido:
 {"items":[{"food":"...","calories":0,"protein":0,"carbs":0,"fat":0}]}`,
-      messages: [{ role: "user", content: fallbackList }],
-    });
+        messages: [{ role: "user", content: fallbackList }],
+      });
 
-    const fbRaw = fbResponse.content[0].type === "text" ? fbResponse.content[0].text.trim() : "{}";
-    const fbMatch = fbRaw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? fbRaw.match(/(\{[\s\S]*\})/);
-    const fbText = fbMatch ? fbMatch[1].trim() : fbRaw;
-    const fbParsed = JSON.parse(fbText) as { items: { food: string; calories: number; protein: number; carbs: number; fat: number }[] };
+      const fbRaw = fbResponse.content[0].type === "text" ? fbResponse.content[0].text.trim() : "{}";
+      const fbMatch = fbRaw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? fbRaw.match(/(\{[\s\S]*\})/);
+      const fbParsed = JSON.parse(fbMatch ? fbMatch[1].trim() : fbRaw) as {
+        items: { food: string; calories: number; protein: number; carbs: number; fat: number }[];
+      };
 
-    for (const item of fbParsed.items) {
-      const mealName = unknownIngredients.find(u => normalizeText(u.food) === normalizeText(item.food))?.mealName;
-      if (!mealName) continue;
-      const idx = resultMeals.findIndex(m => m.mealName === mealName);
-      if (idx === -1) continue;
-      resultMeals[idx].calories += item.calories;
-      resultMeals[idx].protein  += item.protein;
-      resultMeals[idx].carbs    += item.carbs;
-      resultMeals[idx].fat      += item.fat;
+      for (const item of fbParsed.items) {
+        const mealName = stillUnknown.find(u => normalizeText(u.food) === normalizeText(item.food))?.mealName;
+        if (!mealName) continue;
+        const idx = resultMeals.findIndex(m => m.mealName === mealName);
+        if (idx === -1) continue;
+        resultMeals[idx].calories += item.calories;
+        resultMeals[idx].protein  += item.protein;
+        resultMeals[idx].carbs    += item.carbs;
+        resultMeals[idx].fat      += item.fat;
+      }
     }
   }
 
