@@ -66,6 +66,12 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
       return reply.status(200).send({ ok: true });
     }
 
+    // Rate limiting: máximo 20 mensagens por 60 segundos por phone
+    const withinLimit = await redisService.checkRateLimit(phone);
+    if (!withinLimit) {
+      return reply.status(200).send({ ok: true });
+    }
+
     // Idempotência: evitar reprocessamento de retries do provider
     const rawMessageId = body?.messageId;
     const idempotencyKey = rawMessageId
