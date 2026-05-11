@@ -148,21 +148,52 @@ export async function submitOnboarding(input: {
     },
   });
 
-  const perMealCalories = input.meals.length > 0 ? Math.round(targetCalories / input.meals.length) : 0;
-  const perMealProtein = input.meals.length > 0 ? Math.round(targetProtein / input.meals.length) : 0;
+  // Estimar macros reais por refeição via IA
+  const mealsWithEstimates = await (async () => {
+    const withDesc = input.meals.filter((m) => m.description.trim());
+    if (withDesc.length === 0) {
+      const fallbackCal = input.meals.length > 0 ? Math.round(targetCalories / input.meals.length) : 0;
+      const fallbackProt = input.meals.length > 0 ? Math.round(targetProtein / input.meals.length) : 0;
+      return input.meals.map((m) => ({ ...m, estCalories: fallbackCal, estProtein: fallbackProt, estCarbs: null as number | null, estFat: null as number | null }));
+    }
+    try {
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const list = withDesc.map((m, i) => `${i + 1}. ${m.mealName}: ${m.description}`).join("\n");
+      const response = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        messages: [{
+          role: "user",
+          content: `Estime os macros nutricionais de cada refeição. Responda APENAS com JSON válido, sem markdown.\n\n${list}\n\nFormato: {"meals":[{"mealName":"...","calories":0,"protein":0,"carbs":0,"fat":0}]}`,
+        }],
+      });
+      const text = response.content[0].type === "text" ? response.content[0].text.trim() : "{}";
+      const parsed = JSON.parse(text) as { meals: { mealName: string; calories: number; protein: number; carbs: number; fat: number }[] };
+      return input.meals.map((m) => {
+        const est = parsed.meals.find((e) => e.mealName.toLowerCase().includes(m.mealName.toLowerCase()) || m.mealName.toLowerCase().includes(e.mealName.toLowerCase()));
+        const fallbackCal = Math.round(targetCalories / input.meals.length);
+        const fallbackProt = Math.round(targetProtein / input.meals.length);
+        return { ...m, estCalories: est?.calories ?? fallbackCal, estProtein: est?.protein ?? fallbackProt, estCarbs: est?.carbs ?? null, estFat: est?.fat ?? null };
+      });
+    } catch {
+      const fallbackCal = Math.round(targetCalories / input.meals.length);
+      const fallbackProt = Math.round(targetProtein / input.meals.length);
+      return input.meals.map((m) => ({ ...m, estCalories: fallbackCal, estProtein: fallbackProt, estCarbs: null as number | null, estFat: null as number | null }));
+    }
+  })();
 
   await prisma.scheduledMeal.deleteMany({ where: { userId: user.id } });
-  if (input.meals.length > 0) {
+  if (mealsWithEstimates.length > 0) {
     await prisma.scheduledMeal.createMany({
-      data: input.meals.map((m) => ({
+      data: mealsWithEstimates.map((m) => ({
         userId: user.id,
         mealName: m.mealName,
         scheduledTime: m.scheduledTime,
         description: m.description,
-        targetCalories: perMealCalories,
-        targetProtein: perMealProtein,
-        targetCarbs: m.targetCarbs ?? null,
-        targetFat: m.targetFat ?? null,
+        targetCalories: m.estCalories,
+        targetProtein: m.estProtein,
+        targetCarbs: m.estCarbs,
+        targetFat: m.estFat,
       })),
     });
   }
