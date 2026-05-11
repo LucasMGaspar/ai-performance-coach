@@ -1,23 +1,12 @@
 // Coach Agent — Análise de histórico de treinos e geração de feedback de progressão
-// Fase 1: lógica determinística (Double Progression). Claude entra na Fase 2.
+// Fase 2: Claude com tool use
 
 // @ts-ignore — PrismaClient requer `prisma generate` para gerar tipos; ignorar até ao setup da DB
 import { prisma } from "../db/client.js";
 import { ragService } from "../services/rag.service.js";
-
-// Espelhar o tipo WorkoutLog do schema Prisma localmente
-interface WorkoutLog {
-  id: string;
-  userId: string;
-  exerciseId: string;
-  date: Date;
-  weightKg: number;
-  reps: number;
-  sets: number;
-  rpe: number | null;
-  volume: number;
-  rawInput: string | null;
-}
+import Anthropic from "@anthropic-ai/sdk";
+import { anthropicClient } from "../lib/anthropic.js";
+import { logger } from "../lib/logger.js";
 
 export interface WorkoutLogData {
   exerciseName: string;
@@ -29,71 +18,172 @@ export interface WorkoutLogData {
   volume: number;
 }
 
+const COACH_SYSTEM_PROMPT = `Você é um coach de Strength & Conditioning especializado em protocolos de 80 dias. Analise o treino registado e forneça feedback personalizado em português do Brasil.
+
+Processo de raciocínio:
+1. Consulte o histórico do exercício (get_exercise_history) para ver progressão
+2. Calcule E1RM (compute_e1rm) com os dados actuais para quantificar força
+3. Verifique plateau (detect_plateau) se houver histórico suficiente
+4. Se RPE alto ou volume baixo, verifique bem-estar recente (get_checkin_history, 3 dias)
+5. Se relevante para a progressão, consulte dieta recente (get_diet_summary, 1 dia)
+
+Output:
+- 1-3 frases naturais, tom de coach directo
+- 1 insight accionável específico (ex: "Na próxima sessão tente 82,5kg" ou "Sono baixo — priorize recuperação antes de aumentar carga")
+- Formato WhatsApp: sem markdown, máximo 4 linhas, use emojis com moderação`;
+
+const COACH_TOOLS: Anthropic.Tool[] = [
+  {
+    name: "get_exercise_history",
+    description: "Get the last N workout sessions for a specific exercise for this user",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        exerciseId: { type: "string", description: "Exercise ID" },
+        n: { type: "number", description: "Number of past sessions to retrieve (max 10)" },
+      },
+      required: ["exerciseId", "n"],
+    },
+  },
+  {
+    name: "get_diet_summary",
+    description: "Get diet summary (calories, protein, meals) for the last N days",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        days: { type: "number", description: "Number of days to look back" },
+      },
+      required: ["days"],
+    },
+  },
+  {
+    name: "get_checkin_history",
+    description: "Get daily check-in history (mood, sleep quality, energy level) for the last N days",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        days: { type: "number", description: "Number of days to look back" },
+      },
+      required: ["days"],
+    },
+  },
+  {
+    name: "compute_e1rm",
+    description: "Compute estimated 1-rep max using Epley formula: weight * (1 + reps/30)",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        weightKg: { type: "number", description: "Weight lifted in kg" },
+        reps: { type: "number", description: "Number of repetitions" },
+      },
+      required: ["weightKg", "reps"],
+    },
+  },
+  {
+    name: "detect_plateau",
+    description: "Detect if athlete is in a plateau: 3+ sessions with no weight or volume progression",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        exerciseId: { type: "string", description: "Exercise ID to check" },
+      },
+      required: ["exerciseId"],
+    },
+  },
+];
+
 class CoachAgent {
-  /**
-   * Lógica de Double Progression — pura TypeScript, sem chamada a Claude.
-   * Compara o treino actual com o mais recente anterior e sugere progressão.
-   */
-  private generateProgressionSuggestion(
-    logs: WorkoutLog[],
-    current: WorkoutLogData
-  ): string {
-    if (logs.length === 0) {
-      return "Primeiro registro deste exercício! Continue assim.";
-    }
-
-    const previous = logs[0]; // treino mais recente anterior
-    const volumeChange =
-      ((current.volume - previous.volume) / previous.volume) * 100;
-
-    let suggestion = "";
-
-    // Feedback de volume
-    if (volumeChange > 0) {
-      suggestion += `↑ Volume subiu ${volumeChange.toFixed(1)}% vs treino anterior. `;
-    } else if (volumeChange < 0) {
-      suggestion += `↓ Volume desceu ${Math.abs(volumeChange).toFixed(1)}% vs treino anterior. `;
-    }
-
-    // Sugestão de progressão baseada em RPE
-    if (current.rpe !== undefined) {
-      if (current.rpe <= 7) {
-        // Fácil — aumentar carga
-        const suggestedWeight = current.weightKg * 1.025; // +2.5%
-        suggestion += `RPE ${current.rpe} — você pode aumentar para ~${Math.round(suggestedWeight)}kg na próxima sessão.`;
-      } else if (current.rpe === 8) {
-        // No limite — manter ou +1 rep
-        suggestion += `RPE 8 — mantenha a carga e tente +1 rep na próxima sessão.`;
-      } else {
-        // RPE 9-10 — manter carga, focar execução
-        suggestion += `RPE ${current.rpe} — mantenha a carga, foque na execução.`;
+  private async executeTool(
+    userId: string,
+    toolName: string,
+    input: Record<string, unknown>
+  ): Promise<unknown> {
+    switch (toolName) {
+      case "get_exercise_history": {
+        const { exerciseId, n } = input as { exerciseId: string; n: number };
+        return ragService.getLastNWorkouts(userId, exerciseId, Math.min(n, 10));
       }
+      case "get_diet_summary": {
+        const { days } = input as { days: number };
+        return ragService.getDietSummaryDays(userId, days);
+      }
+      case "get_checkin_history": {
+        const { days } = input as { days: number };
+        return ragService.getCheckinHistory(userId, days);
+      }
+      case "compute_e1rm": {
+        const { weightKg, reps } = input as { weightKg: number; reps: number };
+        return { e1rm: +(weightKg * (1 + reps / 30)).toFixed(1) };
+      }
+      case "detect_plateau": {
+        const { exerciseId } = input as { exerciseId: string };
+        const logs = await ragService.getLastNWorkouts(userId, exerciseId, 5);
+        if (logs.length < 3) return { plateau: false, reason: "insufficient_history" };
+        const last3 = logs.slice(0, 3);
+        const noWeightProgress = last3.every((l) => l.weightKg <= last3[last3.length - 1].weightKg);
+        const noVolumeProgress = last3.every((l) => l.volume <= last3[last3.length - 1].volume);
+        return {
+          plateau: noWeightProgress && noVolumeProgress,
+          sessions_checked: last3.length,
+          weights: last3.map((l) => l.weightKg),
+          volumes: last3.map((l) => l.volume),
+        };
+      }
+      default:
+        return { error: `unknown tool: ${toolName}` };
     }
-
-    return suggestion.trim();
   }
 
   /**
-   * Analisa o treino acabado de registar e retorna feedback de progressão.
+   * Analisa o treino acabado de registar usando Claude com tool use loop.
    */
   async analyzeWorkout(
     userId: string,
     currentLog: WorkoutLogData
   ): Promise<string> {
-    const logs = await ragService.getLast3Workouts(
-      userId,
-      currentLog.exerciseId
-    );
+    const userMessage = `Treino registado: ${currentLog.exerciseName}, ${currentLog.weightKg}kg × ${currentLog.reps} reps × ${currentLog.sets} séries${currentLog.rpe != null ? `, RPE ${currentLog.rpe}` : ""}. Volume total: ${currentLog.volume}kg. exerciseId=${currentLog.exerciseId}`;
 
-    const progressionSuggestion = this.generateProgressionSuggestion(
-      logs,
-      currentLog
-    );
+    const messages: Anthropic.MessageParam[] = [
+      { role: "user", content: userMessage },
+    ];
 
-    return (
-      `Registrado! ${currentLog.exerciseName}: ${currentLog.weightKg}kg × ${currentLog.reps} × ${currentLog.sets} ` +
-      `(volume: ${currentLog.volume}kg)\n${progressionSuggestion}`
-    );
+    try {
+      for (let i = 0; i < 6; i++) {
+        const response = await anthropicClient.messages.create({
+          model: "claude-sonnet-4-6",
+          max_tokens: 512,
+          system: COACH_SYSTEM_PROMPT,
+          tools: COACH_TOOLS,
+          messages,
+        });
+
+        if (response.stop_reason === "end_turn") {
+          const textBlock = response.content.find((b) => b.type === "text");
+          return textBlock?.type === "text" ? textBlock.text : "Treino registado!";
+        }
+
+        if (response.stop_reason === "tool_use") {
+          messages.push({ role: "assistant", content: response.content });
+          const toolResults: { type: "tool_result"; tool_use_id: string; content: string }[] = [];
+
+          for (const block of response.content) {
+            if (block.type !== "tool_use") continue;
+            const result = await this.executeTool(userId, block.name, block.input as Record<string, unknown>);
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: block.id,
+              content: JSON.stringify(result),
+            });
+          }
+
+          messages.push({ role: "user", content: toolResults });
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, "coach agent tool use error");
+    }
+
+    return "Treino registado!";
   }
 
   /**
