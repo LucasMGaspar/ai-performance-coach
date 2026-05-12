@@ -4,7 +4,7 @@ import { ConsistencyHeatmap } from "@/components/ConsistencyHeatmap";
 import { GlassCard } from "@/components/GlassCard";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Activity, Flame, Trophy, Utensils, Droplets, Pill } from "lucide-react";
+import { Activity, Flame, Trophy, Utensils, Droplets, Pill, History } from "lucide-react";
 import { ConsistencyScore } from "@/components/ConsistencyScore";
 import { QuickTrackers } from "@/components/QuickTrackers";
 import { ShareButton } from "@/components/ShareButton";
@@ -28,7 +28,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ user
     );
   }
 
-  const { user, protocolDay, macrosToday, workoutLogsToday, tonnageToday, heatmapDays, prs, checkInToday, totalSetsToday, prsTodayCount } = data;
+  const { user, protocolDay, macrosToday, workoutLogsToday, tonnageToday, heatmapDays, prs, checkInToday, totalSetsToday, prsTodayCount, allDietLogs, allWorkoutLogs } = data;
   const protocolPct = (protocolDay / 80) * 100;
 
   return (
@@ -101,7 +101,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ user
             </div>
             
             <p className="text-xs text-slate-400 leading-relaxed italic">
-              "Estás no caminho certo, {user.name?.split(" ")[0]}. Mantém a consistência na dieta hoje."
+              &quot;Estás no caminho certo, {user.name?.split(&quot; &quot;)[0]}. Mantém a consistência na dieta hoje.&quot;
             </p>
           </div>
         </GlassCard>
@@ -172,6 +172,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ user
             ) : (
               <div className="space-y-3">
                 {(() => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const groups: Record<string, any[]> = {};
                   workoutLogsToday.forEach(log => {
                     if (!groups[log.exercise.name]) groups[log.exercise.name] = [];
@@ -203,6 +204,79 @@ export default async function DashboardPage({ params }: { params: Promise<{ user
         {/* Heatmap */}
         <GlassCard title="Frequência & Consistência">
           <ConsistencyHeatmap days={heatmapDays} />
+        </GlassCard>
+
+        {/* Histórico Recente */}
+        <GlassCard title="Histórico Recente" icon={<History className="w-3 h-3" />}>
+          <div className="space-y-6">
+            {/* Últimos Treinos */}
+            <div>
+              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Últimas Sessões</h3>
+              <div className="space-y-2">
+                {(() => {
+                  // Agrupar por dia (excluindo hoje para não repetir)
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const groups: Record<string, any[]> = {};
+                  allWorkoutLogs.forEach(log => {
+                    const dateStr = log.date.toISOString().split('T')[0];
+                    if (dateStr === todayStr) return;
+                    if (!groups[dateStr]) groups[dateStr] = [];
+                    groups[dateStr].push(log);
+                  });
+
+                  const lastDays = Object.entries(groups).slice(0, 3);
+                  if (lastDays.length === 0) return <p className="text-[10px] text-slate-600 italic">Sem treinos anteriores...</p>;
+
+                  return lastDays.map(([date, logs]) => {
+                    const [y, m, d] = date.split('-');
+                    return (
+                      <div key={date} className="bg-white/5 p-2 rounded-lg border border-white/5 flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-white">{d}/{m}</span>
+                          <span className="text-[9px] text-slate-500">{new Set(logs.map(l => l.exercise.name)).size} exercícios</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] font-mono text-cyan-500 font-bold">
+                            {Math.round(logs.reduce((acc, l) => acc + (l.weightKg * l.reps * l.sets), 0) / 1000)}t total
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* Últimas Refeições */}
+            <div>
+              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Últimas Refeições</h3>
+              <div className="space-y-2">
+                {allDietLogs.filter(l => l.date.toISOString().split('T')[0] !== new Date().toISOString().split('T')[0]).slice(0, 5).length === 0 ? (
+                  <p className="text-[10px] text-slate-600 italic">Sem refeições anteriores...</p>
+                ) : (
+                  allDietLogs
+                    .filter(l => l.date.toISOString().split('T')[0] !== new Date().toISOString().split('T')[0])
+                    .slice(0, 5)
+                    .map(log => {
+                      const d = new Date(log.date);
+                      return (
+                        <div key={log.id} className="bg-white/5 p-2 rounded-lg border border-white/5 flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-white">{log.meal}</span>
+                            <span className="text-[9px] text-slate-500">{d.getDate()}/{d.getMonth() + 1}</span>
+                          </div>
+                          <div className="text-right flex flex-col">
+                            <span className="text-[10px] font-bold text-orange-400">{log.calories} kcal</span>
+                            <span className="text-[9px] text-slate-500">{log.protein}g P</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+            </div>
+          </div>
         </GlassCard>
       </div>
     </div>

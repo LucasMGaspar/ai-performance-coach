@@ -10,7 +10,7 @@ function startOfDayBRT(): Date {
 export async function getUserDashboard(userId: string) {
   const today = startOfDayBRT();
 
-  const [user, workoutLogsToday, dietLogsToday, allWorkoutLogs, checkIns, consistencyRaw, prs, scheduledMeals] =
+  const [user, workoutLogsToday, dietLogsToday, allWorkoutLogs, checkIns, consistencyRaw, prs, scheduledMeals, allDietLogs] =
     await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: userId } }),
 
@@ -58,6 +58,11 @@ export async function getUserDashboard(userId: string) {
       prisma.scheduledMeal.findMany({
         where: { userId },
         orderBy: { scheduledTime: "asc" },
+      }),
+      prisma.dietLog.findMany({
+        where: { userId },
+        orderBy: { date: "desc" },
+        take: 100,
       }),
     ]);
 
@@ -159,6 +164,7 @@ export async function getUserDashboard(userId: string) {
     checkIns,
     prs,
     scheduledMeals,
+    allDietLogs,
     checkInToday: checkIns.find(c => toLocalDateString(c.date) === toLocalDateString(today)) || null,
     progression: Array.from(progressionMap.values()),
     previousSession,
