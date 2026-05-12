@@ -57,7 +57,7 @@ export function OnboardingForm() {
     experienceLevel: "intermédio",
     goal: "hipertrofia",
   });
-  const [meals, setMeals] = useState<MealInput[]>(DEFAULT_MEALS);
+  const [meals, setMeals] = useState<EnhancedMealInput[]>(DEFAULT_MEALS);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [macroPreview, setMacroPreview] = useState<MacroPreview | null>(null);
