@@ -165,6 +165,7 @@ export async function getUserDashboard(userId: string) {
     prs,
     scheduledMeals,
     allDietLogs,
+    allWorkoutLogs,
     checkInToday: checkIns.find(c => toLocalDateString(c.date) === toLocalDateString(today)) || null,
     progression: Array.from(progressionMap.values()),
     previousSession,
