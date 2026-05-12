@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { submitOnboarding, type MealInput } from "@/lib/actions";
 import { Plus, Trash2, Calculator, X, Utensils } from "lucide-react";
 import { FoodSearchInput } from "@/components/FoodSearchInput";
