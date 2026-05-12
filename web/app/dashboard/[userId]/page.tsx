@@ -101,7 +101,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ user
             </div>
             
             <p className="text-xs text-slate-400 leading-relaxed italic">
-              &quot;Estás no caminho certo, {user.name?.split(&quot; &quot;)[0]}. Mantém a consistência na dieta hoje.&quot;
+              &quot;Estás no caminho certo, {user.name?.split(" ")[0]}. Mantém a consistência na dieta hoje.&quot;
             </p>
           </div>
         </GlassCard>
