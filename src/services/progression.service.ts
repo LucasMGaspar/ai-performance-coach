@@ -2,7 +2,9 @@ import { prisma } from "../db/client.js";
 import { logger } from "../lib/logger";
 
 export function toDayStart(d: Date): Date {
-  return new Date(d.toISOString().split("T")[0] + "T00:00:00.000Z");
+  const brtMs = d.getTime() - 3 * 60 * 60 * 1000;
+  const dateStr = new Date(brtMs).toISOString().split('T')[0];
+  return new Date(dateStr + 'T03:00:00.000Z');
 }
 
 export function calcNewStreak(

@@ -3,6 +3,7 @@
 // @ts-ignore — PrismaClient requer `prisma generate` para gerar tipos; ignorar até ao setup da DB
 import { prisma } from "../db/client.js";
 import { logger } from "../lib/logger";
+import { toDayStart } from "../services/progression.service.js";
 import { ragService } from "../services/rag.service.js";
 import { wapiService } from "../services/wapi.service.js";
 import type { NudgeType } from "../types/index.js";
@@ -36,8 +37,7 @@ async function checkMealToday(
   userId: string,
   mealLabel: string
 ): Promise<boolean> {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = toDayStart(new Date());
 
   const count = await prisma.dietLog.count({
     where: {

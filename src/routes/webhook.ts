@@ -256,8 +256,10 @@ const webhookRoute: FastifyPluginAsync = async (fastify) => {
         }
 
         case "diet": {
-          const startOfDay = new Date();
-          startOfDay.setHours(0, 0, 0, 0);
+          const now = new Date();
+          const brtMs = now.getTime() - 3 * 60 * 60 * 1000;
+          const dateStr = new Date(brtMs).toISOString().split('T')[0];
+          const startOfDay = new Date(dateStr + 'T03:00:00.000Z');
 
           // @ts-ignore — prisma generate necessário
           const existingLog = await prisma.dietLog.findFirst({

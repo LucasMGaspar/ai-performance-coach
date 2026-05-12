@@ -1,13 +1,14 @@
 import { prisma } from "./prisma";
 
-function startOfDayLocal() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+function startOfDayBRT(): Date {
+  const now = new Date();
+  const brtMs = now.getTime() - 3 * 60 * 60 * 1000;
+  const dateStr = new Date(brtMs).toISOString().split('T')[0];
+  return new Date(dateStr + 'T03:00:00.000Z');
 }
 
 export async function getUserDashboard(userId: string) {
-  const today = startOfDayLocal();
+  const today = startOfDayBRT();
 
   const [user, workoutLogsToday, dietLogsToday, allWorkoutLogs, checkIns, consistencyRaw, prs, scheduledMeals] =
     await Promise.all([

@@ -3,6 +3,7 @@
 
 // @ts-ignore — PrismaClient requer `prisma generate` para gerar tipos; ignorar até ao setup da DB
 import { prisma } from "../db/client.js";
+import { toDayStart } from "./progression.service.js";
 
 // Espelhar os tipos do schema Prisma localmente para evitar dependência de tipos gerados
 interface WorkoutLog {
@@ -85,8 +86,7 @@ class RagService {
    * Soma calories e protein; retorna lista de meal names registados hoje.
    */
   async getDietSummaryToday(userId: string): Promise<DietSummaryToday> {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    const startOfDay = toDayStart(new Date());
 
     const logs = await prisma.dietLog.findMany({
       where: {
@@ -117,8 +117,7 @@ class RagService {
    * Verifica se existe pelo menos 1 WorkoutLog do utilizador hoje.
    */
   async hasWorkoutToday(userId: string): Promise<boolean> {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    const startOfDay = toDayStart(new Date());
 
     const count = await prisma.workoutLog.count({
       where: {
@@ -134,8 +133,7 @@ class RagService {
    * Verifica se existe DailyCheckIn do utilizador hoje.
    */
   async hasCheckInToday(userId: string): Promise<boolean> {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    const startOfDay = toDayStart(new Date());
 
     const count = await prisma.dailyCheckIn.count({
       where: {

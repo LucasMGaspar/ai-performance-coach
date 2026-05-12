@@ -4,9 +4,15 @@ import { prisma } from "./prisma";
 import { revalidatePath } from "next/cache";
 import Anthropic from "@anthropic-ai/sdk";
 
+function startOfDayBRT(): Date {
+  const now = new Date();
+  const brtMs = now.getTime() - 3 * 60 * 60 * 1000;
+  const dateStr = new Date(brtMs).toISOString().split('T')[0];
+  return new Date(dateStr + 'T03:00:00.000Z');
+}
+
 export async function updateWater(userId: string, liters: number) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = startOfDayBRT();
 
   const checkIn = await prisma.dailyCheckIn.findFirst({
     where: { 
@@ -37,8 +43,7 @@ export async function updateWater(userId: string, liters: number) {
 }
 
 export async function toggleSupplement(userId: string, supplement: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = startOfDayBRT();
 
   const checkIn = await prisma.dailyCheckIn.findFirst({
     where: { 
