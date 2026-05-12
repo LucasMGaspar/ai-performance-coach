@@ -235,42 +235,32 @@ export async function calculateMealMacros(
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const list = withDescription.map((m) => `- ${m.mealName}: ${m.description}`).join("\n");
 
-  const SYSTEM_PROMPT = `Você é um nutricionista profissional de alto nível.
-Sua tarefa é calcular os macros exatos para as refeições fornecidas.
+  const SYSTEM_PROMPT = `Você é um nutricionista de precisão cirúrgica. 
+Sua tarefa é calcular os macros EXATOS seguindo estas regras de laboratório:
 
-TABELA DE REFERÊNCIA OURO (Baseada na TACO 4ª Ed e USDA):
-Use estes valores como prioridade absoluta para 100g do alimento:
-- Arroz Branco Cozido: 128 kcal, 2.5g prot, 28g carb, 0.2g gord
-- Arroz Integral Cozido: 124 kcal, 2.6g prot, 26g carb, 1g gord
-- Feijão Carioca Cozido: 76 kcal, 4.8g prot, 14g carb, 0.5g gord
-- Frango Peito Grelhado: 159 kcal, 32g prot, 0g carb, 2.5g gord
-- Carne Acém Cozida/Grelhada: 212 kcal, 27g prot, 0g carb, 11g gord
-- Carne Patinho Grelhado: 219 kcal, 36g prot, 0g carb, 7g gord
-- Ovo Cozido (1un média = 50g): 73 kcal, 6.7g prot, 0.3g carb, 5g gord
-- Pão Francês (1un = 50g): 134 kcal, 4g prot, 28g carb, 0.6g gord
-- Pão Integral (1 fatia = 30g): 75 kcal, 3g prot, 15g carb, 1g gord
-- Leite Integral (100ml): 61 kcal, 3.2g prot, 5g carb, 3.3g gord
-- Banana Prata (1un média = 100g): 98 kcal, 1.3g prot, 26g carb, 0.1g gord
-- Aveia em Flocos: 394 kcal, 14g prot, 67g carb, 8.5g gord
-- Azeite de Oliva (1 col. sopa = 10g): 88 kcal, 0g prot, 0g carb, 10g gord
-- Whey Protein (scoop 30g): 117 kcal, 24g prot, 2g carb, 1.5g gord
-- Pasta de Amendoim: 588 kcal, 25g prot, 13g carb, 50g gord
-- Queijo Mussarela: 280 kcal, 23g prot, 3g carb, 20g gord
+PADRÕES DE PORÇÃO (Use se o usuário não informar gramas):
+- 1 Banana = 90g (80 kcal, 1g prot, 20g carb, 0g gord)
+- 1 Fatia de Pão (Integral/Forma) = 25g (60 kcal, 2.5g prot, 12g carb, 1g gord)
+- 1 Pão Francês = 50g (135 kcal, 4.5g prot, 28g carb, 1g gord)
+- 1 Ovo Médio = 50g (75 kcal, 6.5g prot, 0.5g carb, 5g gord)
+- 1 Scoop de Whey = 30g (115 kcal, 24g prot, 2g carb, 1.5g gord)
+- 1 Colher de Sopa (Azeite/Pasta) = 10g
+- 1 Copo de Leite = 200ml
 
-REGRAS CRÍTICAS:
-1. Use a TABELA DE REFERÊNCIA OURO para calcular. Multiplique o valor proporcionalmente à gramagem informada.
-2. Se o alimento não estiver na tabela, use seu conhecimento treinado (nível TACO/USDA).
-3. Seja matemático: Peso informada * (Valor da Tabela / 100).
-4. Calcule cada refeição de forma INDEPENDENTE. 
-5. Retorne APENAS um JSON válido.
+VALORES DE REFERÊNCIA (por 100g):
+- Arroz Cozido: 128 kcal, 2.5g P, 28g C, 0.2g G
+- Feijão Cozido: 76 kcal, 4.8g P, 14g C, 0.5g G
+- Peito de Frango Grelhado: 160 kcal, 32g P, 0g C, 2.5g G
+- Carne Acém Cozida: 212 kcal, 27g P, 0g C, 11g G
+- Carne Patinho Grelhado: 219 kcal, 36g P, 0g C, 7g G
 
-Formato de Saída:
-{
-  "meals": [
-    { "mealName": "...", "calories": 123, "protein": 20, "carbs": 30, "fat": 10 }
-  ],
-  "total": { "mealName": "Total", "calories": 123, "protein": 20, "carbs": 30, "fat": 10 }
-}`;
+REGRAS DE OURO:
+1. NUNCA invente macros. Se o usuário disse "2 fatias de pão e 1 banana", o total de carboidratos DEVE ser 44g (12+12+20). 
+2. Se o usuário informar gramas (ex: 170g de acém), use a regra de três: 1.7 * 27g prot = 45.9g.
+3. Não arredonde para cima "por segurança". Use o valor real.
+4. Responda APENAS o JSON.
+
+Formato: {"meals":[{"mealName":"...","calories":0,"protein":0,"carbs":0,"fat":0}],"total":{...}}`;
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
