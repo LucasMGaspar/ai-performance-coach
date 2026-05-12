@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { submitOnboarding, calculateMealMacros, type MealInput, type MealMacros } from "@/lib/actions";
-import { Plus, Trash2, Calculator, X } from "lucide-react";
+import { submitOnboarding, type MealInput } from "@/lib/actions";
+import { Plus, Trash2, Calculator, X, Utensils } from "lucide-react";
+import { FoodSearchInput } from "@/components/FoodSearchInput";
 
 type MacroPreview = {
   bmr: number;
@@ -11,13 +10,27 @@ type MacroPreview = {
   targetCalories: number;
   targetProtein: number;
   goalLabel: string;
-  foodEstimate: { meals: MealMacros[]; total: MealMacros } | null;
 };
 
-const DEFAULT_MEALS: MealInput[] = [
-  { mealName: "Café da manhã", scheduledTime: "08:00", description: "" },
-  { mealName: "Almoço", scheduledTime: "12:00", description: "" },
-  { mealName: "Jantar", scheduledTime: "20:00", description: "" },
+interface MealItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: "g" | "un";
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+interface EnhancedMealInput extends MealInput {
+  items: MealItem[];
+}
+
+const DEFAULT_MEALS: EnhancedMealInput[] = [
+  { mealName: "Café da manhã", scheduledTime: "08:00", description: "", items: [] },
+  { mealName: "Almoço", scheduledTime: "12:00", description: "", items: [] },
+  { mealName: "Jantar", scheduledTime: "20:00", description: "", items: [] },
 ];
 
 type ProfileData = {
@@ -52,7 +65,7 @@ export function OnboardingForm() {
 
   const canCalculate = !!profile.weightKg && !!profile.heightCm && !!profile.age;
 
-  const calculatePreview = async () => {
+  const calculatePreview = () => {
     const w = Number(profile.weightKg);
     const h = Number(profile.heightCm);
     const a = Number(profile.age);
@@ -75,31 +88,7 @@ export function OnboardingForm() {
       : goalLower.includes("força") || goalLower.includes("manter") ? "manutenção"
       : "superávit de 10% para hipertrofia";
 
-    setIsCalculating(true);
-    setFoodEstimateError(null);
-    setMacroPreview({ bmr, tdee, targetCalories, targetProtein, goalLabel, foodEstimate: null });
-
-    try {
-      const foodEstimate = await calculateMealMacros(
-        meals.map((m) => ({ mealName: m.mealName, description: m.description }))
-      );
-      // Guardar macros calculados nas refeições para usar no submit
-      if (foodEstimate.meals.length > 0) {
-        setMeals((prev) => prev.map((meal) => {
-          const est = foodEstimate.meals.find(
-            (e) => e.mealName.toLowerCase().includes(meal.mealName.toLowerCase()) ||
-                   meal.mealName.toLowerCase().includes(e.mealName.toLowerCase())
-          );
-          return est ? { ...meal, targetCalories: est.calories, targetProtein: est.protein, targetCarbs: est.carbs, targetFat: est.fat } : meal;
-        }));
-      }
-      setMacroPreview((prev) => prev ? { ...prev, foodEstimate } : prev);
-    } catch (err) {
-      setFoodEstimateError("Não foi possível calcular os macros. Verifique a configuração do servidor.");
-      console.error("calculateMealMacros error:", err);
-    } finally {
-      setIsCalculating(false);
-    }
+    setMacroPreview({ bmr, tdee, targetCalories, targetProtein, goalLabel });
   };
 
   const updateProfile = (field: keyof ProfileData, value: string) =>
@@ -107,12 +96,62 @@ export function OnboardingForm() {
 
   const addMeal = () => {
     if (meals.length >= 8) return;
-    setMeals([...meals, { mealName: "", scheduledTime: "", description: "" }]);
+    setMeals([...meals, { mealName: "", scheduledTime: "", description: "", items: [] }]);
   };
 
   const removeMeal = (i: number) => {
     if (meals.length <= 1) return;
     setMeals(meals.filter((_, idx) => idx !== i));
+  };
+
+  const addItemToMeal = (mealIndex: number, food: any, quantity: number, unit: "g" | "un") => {
+    const updated = [...meals];
+    let weight = quantity;
+    if (unit === "un") {
+      const desc = food.description.toLowerCase();
+      if (desc.includes("ovo")) weight = quantity * 50;
+      else if (desc.includes("pão")) weight = quantity * 25;
+      else weight = quantity * 100;
+    }
+    const factor = weight / 100;
+    
+    const newItem: MealItem = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: food.description,
+      quantity,
+      unit,
+      kcal: Math.round(food.energy_kcal * factor),
+      protein: Number((food.protein_g * factor).toFixed(1)),
+      carbs: Number((food.carbohydrate_g * factor).toFixed(1)),
+      fat: Number((food.lipid_g * factor).toFixed(1)),
+    };
+
+    updated[mealIndex].items.push(newItem);
+    
+    // Atualizar target macros da refeição
+    updated[mealIndex].targetCalories = updated[mealIndex].items.reduce((acc, item) => acc + item.kcal, 0);
+    updated[mealIndex].targetProtein = updated[mealIndex].items.reduce((acc, item) => acc + item.protein, 0);
+    updated[mealIndex].targetCarbs = updated[mealIndex].items.reduce((acc, item) => acc + item.carbs, 0);
+    updated[mealIndex].targetFat = updated[mealIndex].items.reduce((acc, item) => acc + item.fat, 0);
+    
+    // Atualizar descrição para sumarizar itens (usado como fallback no coach)
+    updated[mealIndex].description = updated[mealIndex].items.map(item => `${item.quantity}${item.unit} ${item.name}`).join(" + ");
+    
+    setMeals(updated);
+  };
+
+  const removeItemFromMeal = (mealIndex: number, itemId: string) => {
+    const updated = [...meals];
+    updated[mealIndex].items = updated[mealIndex].items.filter(item => item.id !== itemId);
+    
+    // Recalcular macros
+    updated[mealIndex].targetCalories = updated[mealIndex].items.reduce((acc, item) => acc + item.kcal, 0);
+    updated[mealIndex].targetProtein = updated[mealIndex].items.reduce((acc, item) => acc + item.protein, 0);
+    updated[mealIndex].targetCarbs = updated[mealIndex].items.reduce((acc, item) => acc + item.carbs, 0);
+    updated[mealIndex].targetFat = updated[mealIndex].items.reduce((acc, item) => acc + item.fat, 0);
+    updated[mealIndex].description = updated[mealIndex].items.map(item => `${item.quantity}${item.unit} ${item.name}`).join(" + ");
+
+    setMeals(updated);
   };
 
   const updateMeal = (i: number, field: keyof MealInput, value: string) => {
@@ -330,15 +369,49 @@ export function OnboardingForm() {
                   className={inputClass}
                 />
               </div>
-              <div>
-                <label className={labelClass}>O que costuma comer</label>
-                <input
-                  type="text"
-                  placeholder="ex: 3 ovos + 2 fatias de pão"
-                  value={meal.description}
-                  onChange={(e) => updateMeal(i, "description", e.target.value)}
-                  className={inputClass}
+
+              <div className="col-span-2 space-y-3">
+                <label className={labelClass}>Alimentos da Dieta Padrão</label>
+                
+                {/* Lista de Itens Já Adicionados */}
+                {meal.items.length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    {meal.items.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between bg-white/5 border border-white/5 rounded-lg p-2.5">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-orange-500/20 p-1.5 rounded-md">
+                            <Utensils className="w-3 h-3 text-orange-400" />
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-white leading-none mb-1">{item.name}</p>
+                            <p className="text-[9px] text-slate-500 font-mono uppercase">{item.quantity}{item.unit} • {item.kcal}kcal • {item.protein}g P</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeItemFromMeal(i, item.id)}
+                          className="text-slate-600 hover:text-red-400 p-1"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <FoodSearchInput 
+                  onSelect={(food, q, u) => addItemToMeal(i, food, q, u)} 
+                  placeholder="Adicionar alimento (ex: Ovo, Arroz...)"
                 />
+
+                {/* Resumo de Macros da Refeição */}
+                {meal.items.length > 0 && (
+                  <div className="flex gap-4 pt-2 border-t border-white/5 text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                    <span className="text-orange-400/80">{meal.targetCalories} kcal</span>
+                    <span>{meal.targetProtein}g prot</span>
+                    <span>{meal.targetCarbs}g carb</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -406,45 +479,37 @@ export function OnboardingForm() {
           </div>
 
           {/* Estimativa pelos alimentos */}
-          {isCalculating && (
-            <div className="border-t border-white/5 pt-4">
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2">Estimativa dos seus alimentos</p>
-              <p className="text-xs text-slate-600">Analisando as descrições das refeições...</p>
-            </div>
-          )}
-
-          {!isCalculating && macroPreview.foodEstimate && macroPreview.foodEstimate.meals.length > 0 && (
+          {macroPreview && (
             <div className="border-t border-white/5 pt-4 space-y-3">
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest">Estimativa dos seus alimentos</p>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest">Resumo dos alimentos cadastrados</p>
 
-              {macroPreview.foodEstimate.meals.map((m) => (
+              {meals.filter(m => m.items.length > 0).map((m) => (
                 <div key={m.mealName} className="flex items-center justify-between py-2 border-b border-white/5">
                   <span className="text-xs text-slate-400">{m.mealName}</span>
-                  <div className="flex gap-3 text-xs">
-                    <span className="text-white font-bold">{m.calories} kcal</span>
-                    <span className="text-blue-400">{m.protein}g prot</span>
-                    <span className="text-yellow-400">{m.carbs}g carb</span>
-                    <span className="text-pink-400">{m.fat}g gord</span>
+                  <div className="flex gap-3 text-xs font-mono">
+                    <span className="text-white font-bold">{m.targetCalories} kcal</span>
+                    <span className="text-blue-400">{m.targetProtein}g P</span>
                   </div>
                 </div>
               ))}
 
               <div className="flex items-center justify-between pt-1">
-                <span className="text-xs font-bold text-slate-300">Total diário</span>
-                <div className="flex gap-3 text-xs">
-                  <span className="text-orange-400 font-black">{macroPreview.foodEstimate.total.calories} kcal</span>
-                  <span className="text-blue-400 font-bold">{macroPreview.foodEstimate.total.protein}g prot</span>
-                  <span className="text-yellow-400 font-bold">{macroPreview.foodEstimate.total.carbs}g carb</span>
-                  <span className="text-pink-400 font-bold">{macroPreview.foodEstimate.total.fat}g gord</span>
+                <span className="text-xs font-bold text-slate-300">Total cadastrado</span>
+                <div className="flex gap-3 text-xs font-mono">
+                  <span className="text-orange-400 font-black">
+                    {meals.reduce((acc, m) => acc + (m.targetCalories || 0), 0)} kcal
+                  </span>
+                  <span className="text-blue-400 font-bold">
+                    {meals.reduce((acc, m) => acc + (m.targetProtein || 0), 0)}g P
+                  </span>
                 </div>
               </div>
-            </div>
-          )}
 
-          {!isCalculating && macroPreview.foodEstimate && macroPreview.foodEstimate.meals.length === 0 && (
-            <div className="border-t border-white/5 pt-4">
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Estimativa dos seus alimentos</p>
-              <p className="text-xs text-slate-600">Descreva o que costuma comer em cada refeição para ver os macros estimados.</p>
+              {meals.reduce((acc, m) => acc + (m.targetCalories || 0), 0) < macroPreview.targetCalories * 0.8 && (
+                <p className="text-[9px] text-yellow-500/80 italic">
+                  ⚠️ Sua dieta cadastrada está abaixo da meta sugerida. Adicione mais alimentos para bater os macros.
+                </p>
+              )}
             </div>
           )}
 
