@@ -15,7 +15,7 @@ import { progressionService } from "../services/progression.service";
 import type { WApiMessagePayload } from "../types";
 
 const FALLBACK_MESSAGE =
-  "Ocorreu um erro ao processar a tua mensagem. Tenta novamente.";
+  "Desculpa, tive um pequeno problema ao processar isso. Podes repetir de forma mais detalhada?";
 
 const webhookRoute: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: WApiMessagePayload }>("/whatsapp", async (request, reply) => {

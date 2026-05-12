@@ -247,7 +247,7 @@ export class ParserAgent {
     // 4. Chamar Claude com tool use
     try {
       const response = await this.client.messages.create({
-        model: "claude-sonnet-4-5",
+        model: "claude-sonnet-4-6",
         max_tokens: 1024,
         system: systemMessages,
         tools: [EXTRACTION_TOOL],

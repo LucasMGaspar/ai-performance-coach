@@ -78,7 +78,7 @@ Lembre-se: Seja natural. Se ele perguntar "qual minha dieta", liste as refeiçõ
 
     try {
       const response = await this.client.messages.create({
-        model: "claude-sonnet-4-5",
+        model: "claude-sonnet-4-6",
         max_tokens: 400,
         messages: [{ role: "user", content: prompt }],
       });
