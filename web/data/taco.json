@@ -5968,5 +5968,55 @@
     "lipid_g": 59.36,
     "carbohydrate_g": 18.36,
     "fiber_g": 7.25
+  },
+  {
+    "id": 598,
+    "description": "Whey Protein Concentrado",
+    "category": "Suplementos",
+    "energy_kcal": 390,
+    "protein_g": 80,
+    "lipid_g": 5,
+    "carbohydrate_g": 10,
+    "fiber_g": 0
+  },
+  {
+    "id": 599,
+    "description": "Whey Protein Isolado",
+    "category": "Suplementos",
+    "energy_kcal": 366,
+    "protein_g": 90,
+    "lipid_g": 0,
+    "carbohydrate_g": 2,
+    "fiber_g": 0
+  },
+  {
+    "id": 600,
+    "description": "Creatina Monohidratada",
+    "category": "Suplementos",
+    "energy_kcal": 0,
+    "protein_g": 0,
+    "lipid_g": 0,
+    "carbohydrate_g": 0,
+    "fiber_g": 0
+  },
+  {
+    "id": 601,
+    "description": "Pasta de Amendoim Integral",
+    "category": "Leguminosas e derivados",
+    "energy_kcal": 588,
+    "protein_g": 25,
+    "lipid_g": 50,
+    "carbohydrate_g": 13,
+    "fiber_g": 8
+  },
+  {
+    "id": 602,
+    "description": "Iogurte Grego Natural",
+    "category": "Leite e derivados",
+    "energy_kcal": 110,
+    "protein_g": 7,
+    "lipid_g": 5,
+    "carbohydrate_g": 9,
+    "fiber_g": 0
   }
 ]

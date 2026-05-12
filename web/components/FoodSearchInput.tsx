@@ -50,7 +50,7 @@ export function FoodSearchInput({ onSelect, placeholder = "Pesquisar alimento...
   const handleSelect = (food: Food) => {
     setSelectedFood(food);
     const desc = food.description.toLowerCase();
-    if (desc.includes("ovo") || desc.includes("unidade") || desc.includes("pão") || desc.includes("fatia")) {
+    if (desc.includes("ovo") || desc.includes("unidade") || desc.includes("pão") || desc.includes("fatia") || desc.includes("whey") || desc.includes("pasta de amendoim")) {
       setUnit("un");
       setQuantity(1);
     } else {

@@ -113,6 +113,8 @@ export function OnboardingForm() {
       const desc = food.description.toLowerCase();
       if (desc.includes("ovo")) weight = quantity * 50;
       else if (desc.includes("pão")) weight = quantity * 25;
+      else if (desc.includes("whey")) weight = quantity * 30;
+      else if (desc.includes("pasta de amendoim")) weight = quantity * 15;
       else weight = quantity * 100;
     }
     const factor = weight / 100;

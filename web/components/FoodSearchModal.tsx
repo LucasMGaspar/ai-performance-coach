@@ -71,6 +71,8 @@ export function FoodSearchModal({ userId }: { userId: string }) {
       const desc = selectedFood.description.toLowerCase();
       if (desc.includes("ovo")) finalWeight = quantity * 50;
       else if (desc.includes("pão")) finalWeight = quantity * 25;
+      else if (desc.includes("whey")) finalWeight = quantity * 30;
+      else if (desc.includes("pasta de amendoim")) finalWeight = quantity * 15;
       else finalWeight = quantity * 100; // Padrão
     }
 
