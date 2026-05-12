@@ -238,11 +238,30 @@ export async function calculateMealMacros(
   const SYSTEM_PROMPT = `Você é um nutricionista profissional de alto nível.
 Sua tarefa é calcular os macros exatos para as refeições fornecidas.
 
+TABELA DE REFERÊNCIA OURO (Baseada na TACO 4ª Ed e USDA):
+Use estes valores como prioridade absoluta para 100g do alimento:
+- Arroz Branco Cozido: 128 kcal, 2.5g prot, 28g carb, 0.2g gord
+- Arroz Integral Cozido: 124 kcal, 2.6g prot, 26g carb, 1g gord
+- Feijão Carioca Cozido: 76 kcal, 4.8g prot, 14g carb, 0.5g gord
+- Frango Peito Grelhado: 159 kcal, 32g prot, 0g carb, 2.5g gord
+- Carne Acém Cozida/Grelhada: 212 kcal, 27g prot, 0g carb, 11g gord
+- Carne Patinho Grelhado: 219 kcal, 36g prot, 0g carb, 7g gord
+- Ovo Cozido (1un média = 50g): 73 kcal, 6.7g prot, 0.3g carb, 5g gord
+- Pão Francês (1un = 50g): 134 kcal, 4g prot, 28g carb, 0.6g gord
+- Pão Integral (1 fatia = 30g): 75 kcal, 3g prot, 15g carb, 1g gord
+- Leite Integral (100ml): 61 kcal, 3.2g prot, 5g carb, 3.3g gord
+- Banana Prata (1un média = 100g): 98 kcal, 1.3g prot, 26g carb, 0.1g gord
+- Aveia em Flocos: 394 kcal, 14g prot, 67g carb, 8.5g gord
+- Azeite de Oliva (1 col. sopa = 10g): 88 kcal, 0g prot, 0g carb, 10g gord
+- Whey Protein (scoop 30g): 117 kcal, 24g prot, 2g carb, 1.5g gord
+- Pasta de Amendoim: 588 kcal, 25g prot, 13g carb, 50g gord
+- Queijo Mussarela: 280 kcal, 23g prot, 3g carb, 20g gord
+
 REGRAS CRÍTICAS:
-1. Use seu conhecimento treinado das tabelas TACO (Brasil) e USDA (EUA) para obter valores REAIS.
-2. Seja preciso com porções: 1 ovo médio = 50g, 1 fatia de pão = 30g, 1 colher de sopa de azeite = 10g, etc., a menos que o usuário especifique o peso.
-3. Calcule cada refeição de forma INDEPENDENTE. Não repita valores entre refeições diferentes.
-4. Para carnes, use valores de "grelhado/cozido" como padrão.
+1. Use a TABELA DE REFERÊNCIA OURO para calcular. Multiplique o valor proporcionalmente à gramagem informada.
+2. Se o alimento não estiver na tabela, use seu conhecimento treinado (nível TACO/USDA).
+3. Seja matemático: Peso informada * (Valor da Tabela / 100).
+4. Calcule cada refeição de forma INDEPENDENTE. 
 5. Retorne APENAS um JSON válido.
 
 Formato de Saída:
