@@ -8,6 +8,7 @@ import { Activity, Flame, Trophy, Utensils, Droplets, Pill, History } from "luci
 import { ConsistencyScore } from "@/components/ConsistencyScore";
 import { QuickTrackers } from "@/components/QuickTrackers";
 import { ShareButton } from "@/components/ShareButton";
+import { FoodSearchModal } from "@/components/FoodSearchModal";
 
 export const dynamic = "force-dynamic";
 
@@ -135,6 +136,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ user
               color="#a78bfa"
             />
           </div>
+          <FoodSearchModal userId={userId} />
         </GlassCard>
 
         {/* Treino de hoje */}
